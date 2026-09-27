@@ -49,4 +49,4 @@ def test_people_are_stand_ins(text):
     parents = set(re.findall(r'utilitiesButtonMain__text--username">([^<]*)<', text))
     assert parents <= {"PARENT"}
     names = set(re.findall(r'familyAccessStudentNameText">([^<]*)<', text))
-    assert names <= {"DOE,", "JANE Q", "More"}
+    assert names <= {"STUDENT,", "DEMO", "More"}

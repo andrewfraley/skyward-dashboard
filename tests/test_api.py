@@ -39,7 +39,7 @@ def test_status_without_credentials(client):
 
 
 def test_students_courses_assignments(client):
-    assert client.get("/api/students").json()[0]["name"] == "DOE, JANE"
+    assert client.get("/api/students").json()[0]["name"] == "STUDENT, DEMO"
     [course] = client.get("/api/students/1/courses").json()
     assert course["grades"][1] == {
         **course["grades"][1],

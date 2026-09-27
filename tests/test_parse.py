@@ -71,7 +71,7 @@ def test_browse_configs_carry_what_getbrowse_needs():
 def test_students():
     [student] = parse_students(load_page("grades_page.html"))
     assert student.id == STUDENT_ID
-    assert student.name == "DOE, JANE Q"
+    assert student.name == "STUDENT, DEMO"
     assert student.school and student.school_year
 
 

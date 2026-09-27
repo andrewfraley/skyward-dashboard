@@ -21,7 +21,7 @@ commit messages, PR text):
   geographically (state, city, timezone)
 - real course names or assignment titles; they can name the school, district or state
 
-Use made-up stand-ins instead: `DOE, JANE Q`, `TEACHER A`, `COURSE A`, `ASSIGNMENT 001`,
+Use made-up stand-ins instead: `STUDENT, DEMO` (shown as "Demo"), `TEACHER A`, `COURSE A`, `ASSIGNMENT 001`,
 `EXAMPLE MIDDLE SCHOOL`, `skyward.example.org`, student id `100001`. For a realistic course name
 in a test, invent one ("CONCERT CHOIR-II"), never copy one from the synced data.
 

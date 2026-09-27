@@ -73,7 +73,8 @@ describe('dates and labels', () => {
 
 describe('names', () => {
   it('shortens and title-cases', () => {
-    expect(firstName('DOE, JANE Q')).toBe('Jane')
+    expect(firstName('STUDENT, DEMO')).toBe('Demo')
+    expect(firstName('LAST, FIRST MIDDLE')).toBe('First')
     expect(courseTitle('ENGLISH 8 AP-I')).toBe('English 8 AP-I')
     expect(courseTitle('ART OF THE STARS & SEAS')).toBe('Art of the Stars & Seas')
     expect(courseTitle('SEMI-CONDUCTORS 9-I')).toBe('Semi-Conductors 9-I')

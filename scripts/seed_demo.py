@@ -1,6 +1,6 @@
 """Seed a made-up account for screenshots and UI checks: never real data.
 
-Simulates five weeks of twice-weekly syncs of one invented student ("DOE, JANE Q" at
+Simulates five weeks of twice-weekly syncs of one invented student ("STUDENT, DEMO" at
 EXAMPLE MIDDLE SCHOOL) with invented classes, teachers and assignments, so the
 grade trends and the changes feed have something to show. Grades are computed
 from the assignments as they stood on each sync day, so everything agrees.
@@ -31,7 +31,7 @@ from app.skyward.models import (  # noqa: E402
 
 DEMO_DIR = ROOT / "recordings" / "demo"
 DEMO_STUDENT = Student(
-    id=100001, name="DOE, JANE Q", school="EXAMPLE MIDDLE SCHOOL", school_year="2026-2027"
+    id=100001, name="STUDENT, DEMO", school="EXAMPLE MIDDLE SCHOOL", school_year="2026-2027"
 )
 
 # name, period, teacher, how well she does (0-1), categories with point sizes, assignment titles

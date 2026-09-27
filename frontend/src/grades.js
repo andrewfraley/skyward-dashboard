@@ -104,7 +104,7 @@ export function timeAgoShort(iso, now = Date.now()) {
   return m ? `${m[1]}${m[2][0]} ago` : long
 }
 
-/** "DOE, JANE Q" -> "Jane". */
+/** "STUDENT, DEMO" -> "Demo". */
 export function firstName(fullName) {
   const first = (fullName || '').split(',')[1]?.trim().split(/\s+/)[0] || fullName || ''
   return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()

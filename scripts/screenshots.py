@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DEMO_DIR = ROOT / "recordings" / "demo"
 PORT = 8087
 BASE = f"http://127.0.0.1:{PORT}"
-DEMO_STUDENT = "DOE, JANE Q"
+DEMO_STUDENT = "STUDENT, DEMO"
 
 PHONES = [(360, 740), (390, 844)]
 
