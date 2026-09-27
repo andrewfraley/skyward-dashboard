@@ -21,7 +21,15 @@ import { LineChart } from '@mui/x-charts/LineChart'
 import * as api from './api.js'
 import AssignmentTable from './AssignmentTable.jsx'
 import { GradeChip, GradeHero } from './GradeBadge.jsx'
-import { courseTitle, currentTerm, formatPercent, gradeColor, shortDate } from './grades.js'
+import {
+  courseTitle,
+  currentTerm,
+  formatPercent,
+  gradeColor,
+  gradingPeriod,
+  inPeriod,
+  shortDate,
+} from './grades.js'
 
 function ScoreBar({ category }) {
   const color = gradeColor(category.grade)
@@ -159,6 +167,13 @@ export default function CoursePage({ studentSectionId, version }) {
   if (error) return <Alert severity="error">{error}</Alert>
   if (!course) return <LinearProgress />
 
+  // Missing work in the current grading period, as Skyward counts it, and the rest of the year.
+  const period = gradingPeriod([course])
+  const allMissing = course.assignments.filter((a) => a.status === 'missing')
+  const missing = allMissing.filter((a) => inPeriod(a, period)).length
+  const earlier = allMissing.length - missing
+  const plural = (n) => (n === 1 ? '' : 's')
+
   const termAssignments = selected?.assignment_ids?.length
     ? course.assignments.filter((a) => selected.assignment_ids.includes(a.id))
     : course.assignments
@@ -179,9 +194,15 @@ export default function CoursePage({ studentSectionId, version }) {
                 .filter(Boolean)
                 .join(' · ')}
             </Typography>
-            {course.missing_count > 0 && (
+            {missing > 0 && (
               <Typography color="error" sx={{ mt: 1, fontWeight: 600 }}>
-                {course.missing_count} missing assignment{course.missing_count === 1 ? '' : 's'}
+                {missing} missing assignment{plural(missing)}
+                {period && ` in ${period.term}`}
+              </Typography>
+            )}
+            {earlier > 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: missing ? 0 : 1 }}>
+                {earlier} missing earlier this year
               </Typography>
             )}
           </Box>

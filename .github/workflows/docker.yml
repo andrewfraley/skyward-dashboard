@@ -17,6 +17,14 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A push to a PR branch starts two runs for the same commit (push and
+# pull_request). Both building at once and writing the same build cache can
+# stall the build, so the second waits for the first and then finds the cache
+# fresh. Different commits still build in parallel.
+concurrency:
+  group: build-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+
 # Every action is pinned to a full commit SHA, with its version in a comment.
 # A tag like @v7 can be moved to other code; a SHA can't. Dependabot proposes
 # updates (.github/dependabot.yml), and the repository requires SHA pins.
