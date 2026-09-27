@@ -4,12 +4,6 @@ export const THEME_PREFERENCES = ['auto', 'light', 'dark']
 
 const KEY = 'theme'
 
-/** The next choice when the header button is pressed: auto -> light -> dark -> auto. */
-export function nextTheme(preference) {
-  const i = THEME_PREFERENCES.indexOf(preference)
-  return THEME_PREFERENCES[(i + 1) % THEME_PREFERENCES.length]
-}
-
 /** A stored value, or 'auto' for anything missing or unknown. */
 export function parseTheme(value) {
   return THEME_PREFERENCES.includes(value) ? value : 'auto'
