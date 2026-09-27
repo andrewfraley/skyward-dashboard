@@ -20,6 +20,7 @@ import Footer from './Footer.jsx'
 import { firstName, gradingPeriod, inPeriod } from './grades.js'
 import OverviewPage from './OverviewPage.jsx'
 import SyncStatus from './SyncStatus.jsx'
+import ThemeToggle from './ThemeToggle.jsx'
 
 // The class page pulls in the charts library; load it only when opened.
 const CoursePage = lazy(() => import('./CoursePage.jsx'))
@@ -37,10 +38,10 @@ function routeFromHash() {
 }
 
 /**
- * The shell: student picker, sync status, and the pages. Routes live in the
+ * The shell: student picker, sync status, theme switch and the pages. Routes live in the
  * URL hash so a reload (or a bookmark) comes back to the same view.
  */
-export default function App() {
+export default function App({ themePreference, onThemeChange }) {
   const [route, setRoute] = useState(routeFromHash)
   const [students, setStudents] = useState([])
   const [studentId, setStudentId] = useState(null)
@@ -170,6 +171,7 @@ export default function App() {
           )}
           <Box sx={{ flex: 1 }} />
           <SyncStatus onSynced={onSynced} compact={phone} />
+          <ThemeToggle preference={themePreference} onChange={onThemeChange} compact={phone} />
         </Toolbar>
         {!phone && (
           <Tabs value={tab} onChange={(_, t) => go(t)} sx={{ px: 1 }}>

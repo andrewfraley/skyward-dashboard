@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import CssBaseline from '@mui/material/CssBaseline'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 
 import App from './App.jsx'
+import { loadTheme, saveTheme } from './theme.js'
 
 const PRIMARY = { light: '#1e5aa8', dark: '#6da7ec' }
 
@@ -15,6 +16,13 @@ const PRIMARY = { light: '#1e5aa8', dark: '#6da7ec' }
 const STATUS = { success: '#0ca30c', warning: '#fab219' }
 const ERROR = { light: '#d03b3b', dark: '#e86161' }
 
+// index.html's theme-color tags use the paper colours too, so the browser bar
+// matches the page header.
+const BACKGROUND = {
+  light: { default: '#f4f4f2', paper: '#fcfcfb' },
+  dark: { default: '#121211', paper: '#1a1a19' },
+}
+
 function buildTheme(mode) {
   return createTheme({
     palette: {
@@ -23,10 +31,7 @@ function buildTheme(mode) {
       success: { main: STATUS.success },
       warning: { main: STATUS.warning },
       error: { main: ERROR[mode] },
-      background:
-        mode === 'dark'
-          ? { default: '#121211', paper: '#1a1a19' }
-          : { default: '#f4f4f2', paper: '#fcfcfb' },
+      background: BACKGROUND[mode],
       // MUI's default of 3 picks white text on the warning amber; 4.5 is the
       // WCAG AA line for normal text and flips it to black.
       contrastThreshold: 4.5,
@@ -76,13 +81,33 @@ function buildTheme(mode) {
   })
 }
 
+/**
+ * With a theme chosen, point both of index.html's theme-color tags (one per
+ * device scheme) at its paper colour; on auto, give each its own back.
+ */
+function useThemeColorMeta(preference) {
+  useEffect(() => {
+    for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+      const scheme = meta.media.includes('dark') ? 'dark' : 'light'
+      meta.content = BACKGROUND[preference === 'auto' ? scheme : preference].paper
+    }
+  }, [preference])
+}
+
 function Root() {
   const prefersDark = useMediaQuery('(prefers-color-scheme: dark)')
-  const theme = useMemo(() => buildTheme(prefersDark ? 'dark' : 'light'), [prefersDark])
+  const [preference, setPreference] = useState(loadTheme)
+  const mode = preference === 'auto' ? (prefersDark ? 'dark' : 'light') : preference
+  const theme = useMemo(() => buildTheme(mode), [mode])
+  useThemeColorMeta(preference)
+  const onThemeChange = (p) => {
+    setPreference(p)
+    saveTheme(p)
+  }
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <App />
+      <App themePreference={preference} onThemeChange={onThemeChange} />
     </ThemeProvider>
   )
 }
