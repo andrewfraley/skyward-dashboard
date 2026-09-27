@@ -35,7 +35,7 @@ def snapshot(gp2="B", gp2_pct=85.0, hw_status="missing", hw_score=0.0, extra=())
         *extra,
     ]  # fmt: skip
     return Snapshot(
-        students=[Student(id=1, name="DOE, JANE")], courses=[course], assignments=assignments
+        students=[Student(id=1, name="STUDENT, DEMO")], courses=[course], assignments=assignments
     )
 
 

@@ -41,18 +41,21 @@ from app.skyward.session import Browse, SkywardSession  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "fixtures"
 FAKE_STUDENT_ID = "100001"
-FAKE_NAME_PARTS = ["DOE", "JANE", "Q", "R", "S"]  # last, first, middle, ...
+FAKE_STUDENT_NAME = "STUDENT, DEMO"
 FAKE_SCHOOL = "EXAMPLE MIDDLE SCHOOL"
 FAKE_HOST = "skyward.example.org"
 
 
 class Scrubber:
     def __init__(self, base_url: str, student_id: str, student_name: str, schools: list[str]):
-        # Longest first, so a full name is replaced before its parts.
-        self.words: dict[str, str] = {}
-        last, _, rest = student_name.partition(",")
-        for real, fake in zip([last, *rest.split()], FAKE_NAME_PARTS):
-            self.words[real.strip()] = fake
+        # Replaced longest first, so the full name goes before its parts. Every
+        # given name (first and any middle ones, together or alone) becomes DEMO.
+        last, _, given = student_name.partition(",")
+        self.words: dict[str, str] = {student_name: FAKE_STUDENT_NAME, last.strip(): "STUDENT"}
+        if given.strip():
+            self.words[given.strip()] = "DEMO"
+            for part in given.split():
+                self.words.setdefault(part, "DEMO")
         for school in schools:
             self.words[school] = FAKE_SCHOOL
         self.host = urlsplit(base_url).hostname or ""

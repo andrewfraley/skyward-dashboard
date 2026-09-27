@@ -1,6 +1,8 @@
 import Chip from '@mui/material/Chip'
+import useMediaQuery from '@mui/material/useMediaQuery'
 import { DataGrid } from '@mui/x-data-grid'
 
+import AssignmentList from './AssignmentList.jsx'
 import { courseTitle, dueLabel, formatScore, gradeColor, shortDate } from './grades.js'
 
 const STATUS_CHIP = {
@@ -10,9 +12,10 @@ const STATUS_CHIP = {
 }
 
 /**
- * Sortable, filterable assignment list. `columns` picks which optional
- * columns to show, so the same table serves the overview, a course page and
- * the full assignments page.
+ * Sortable, filterable assignment table. The props pick which optional columns
+ * to show, so the same table serves the overview, a class page and the full
+ * assignments page. Below the `md` breakpoint (phones and portrait tablets),
+ * where its columns would scroll sideways, it renders AssignmentList instead.
  */
 export default function AssignmentTable({
   rows,
@@ -23,6 +26,20 @@ export default function AssignmentTable({
   pageSize = 25,
   height,
 }) {
+  const narrow = useMediaQuery((theme) => theme.breakpoints.down('md'), { noSsr: true })
+  if (narrow) {
+    return (
+      <AssignmentList
+        rows={rows}
+        loading={loading}
+        showCourse={showCourse}
+        showStatus={showStatus}
+        relativeDates={relativeDates}
+        pageSize={pageSize}
+      />
+    )
+  }
+
   const columns = [
     {
       field: 'due_date',

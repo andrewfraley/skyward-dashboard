@@ -9,6 +9,7 @@ import {
   gradeColor,
   isStruggling,
   timeAgo,
+  timeAgoShort,
 } from './grades.js'
 
 const grades = [
@@ -61,15 +62,25 @@ describe('dates and labels', () => {
     expect(timeAgo('2026-09-26T12:00:00Z', now)).toBe('1 day ago')
     expect(timeAgo(null, now)).toBe('never')
   })
+  it('shortens time ago for phones', () => {
+    const now = Date.parse('2026-09-27T12:00:00Z')
+    expect(timeAgoShort('2026-09-27T11:55:00Z', now)).toBe('5m ago')
+    expect(timeAgoShort('2026-09-27T09:00:00Z', now)).toBe('3h ago')
+    expect(timeAgoShort('2026-09-25T12:00:00Z', now)).toBe('2d ago')
+    expect(timeAgoShort('2026-09-27T11:59:50Z', now)).toBe('just now')
+  })
 })
 
 describe('names', () => {
   it('shortens and title-cases', () => {
-    expect(firstName('DOE, JANE Q')).toBe('Jane')
+    expect(firstName('STUDENT, DEMO')).toBe('Demo')
+    expect(firstName('LAST, FIRST MIDDLE')).toBe('First')
     expect(courseTitle('ENGLISH 8 AP-I')).toBe('English 8 AP-I')
     expect(courseTitle('ART OF THE STARS & SEAS')).toBe('Art of the Stars & Seas')
     expect(courseTitle('SEMI-CONDUCTORS 9-I')).toBe('Semi-Conductors 9-I')
     expect(courseTitle('CONCERT CHOIR-II')).toBe('Concert Choir-II')
+    expect(courseTitle('US HISTORY')).toBe('US History')
+    expect(courseTitle('HISTORY OF ART')).toBe('History of Art')
     expect(courseTitle('FORM ASSESSMENTS')).toBe('Form Assessments')
   })
   it('formats scores', () => {

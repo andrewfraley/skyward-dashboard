@@ -21,7 +21,7 @@ commit messages, PR text):
   geographically (state, city, timezone)
 - real course names or assignment titles; they can name the school, district or state
 
-Use made-up stand-ins instead: `DOE, JANE Q`, `TEACHER A`, `COURSE A`, `ASSIGNMENT 001`,
+Use made-up stand-ins instead: `STUDENT, DEMO` (shown as "Demo"), `TEACHER A`, `COURSE A`, `ASSIGNMENT 001`,
 `EXAMPLE MIDDLE SCHOOL`, `skyward.example.org`, student id `100001`. For a realistic course name
 in a test, invent one ("CONCERT CHOIR-II"), never copy one from the synced data.
 
@@ -99,6 +99,11 @@ proxy targets it). The container still listens on 8080 internally.
   (`app/sync.py`, `scripts/explore.py`, `scripts/capture_fixtures.py`) must use that file.
   Never create a throwaway session. Don't sync in loops; reuse `recordings/` for parser work.
   No keep-alive either: holding a session open would fight the parent's own browser sign-ins.
+- That includes **local testing**, container tests too: anything that reaches the real site
+  reuses `data/skyward-cookies.json`. For a container, mount the repo's `./data` (or copy the
+  cookie file into its data dir, 0600) rather than starting from an empty data dir, and stop any
+  other instance first so two don't share one session. Prefer offline work: `recordings/`,
+  `tests/fixtures/`, and the fake site in `tests/test_session_cookies.py`.
 - The assignments page filter (Current Term / All Year) is a server-side user preference.
   `fetch_assignments` sets All Year and must always restore Current in a `finally`.
 - Grid requests need the per-page CSRF token (`sessionGuidHash`), window ids (`p`, `w`), and
@@ -114,6 +119,13 @@ proxy targets it). The container still listens on 8080 internally.
   cache.
 - Grade colours use the fixed status palette (success/warning/error) and always sit beside the
   letter grade; colour never carries meaning alone.
+- Phone layout below `sm` (bottom tab bar, one-line header); assignment lists instead of the
+  DataGrid below `md`. Every UI change must pass `scripts/screenshots.py --check` (seed the demo
+  data first; DEVELOPING.md has the commands) and the screenshots in `recordings/screens/`
+  should be looked at, not just the exit code.
+- README screenshots come only from `scripts/screenshots.py --readme` on the seeded demo data,
+  **never from real data** or a real browser session. `check_pii.py` can't read images: look at
+  every image before committing it.
 
 ## Supply chain
 

@@ -97,7 +97,14 @@ export function timeAgo(iso, now = Date.now()) {
   return 'just now'
 }
 
-/** "DOE, JANE Q" -> "Jane". */
+/** '5m ago', '3h ago', '2d ago': timeAgo() for a phone's header. */
+export function timeAgoShort(iso, now = Date.now()) {
+  const long = timeAgo(iso, now)
+  const m = long.match(/^(\d+) (day|hour|minute)s? ago$/)
+  return m ? `${m[1]}${m[2][0]} ago` : long
+}
+
+/** "STUDENT, DEMO" -> "Demo". */
 export function firstName(fullName) {
   const first = (fullName || '').split(',')[1]?.trim().split(/\s+/)[0] || fullName || ''
   return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase()
@@ -114,7 +121,8 @@ export function courseTitle(name) {
   const word = (w, i) => {
     const lower = w.toLowerCase()
     if (i > 0 && SMALL_WORDS.has(lower)) return lower
-    if (KEEP_UPPER.has(w) || /\d/.test(w) || /^[IVX]+$/.test(w)) return w
+    // Codes, numbers, roman numerals and two-letter abbreviations ("US") stay as they are.
+    if (KEEP_UPPER.has(w) || /\d/.test(w) || /^[IVX]+$/.test(w) || w.length <= 2) return w
     return w.charAt(0) + lower.slice(1)
   }
   return (name || '')

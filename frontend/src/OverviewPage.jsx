@@ -15,14 +15,32 @@ import AssignmentTable from './AssignmentTable.jsx'
 import { GradeChip, GradeHero } from './GradeBadge.jsx'
 import { courseTitle, currentTerm, daysUntil, isStruggling, semesterGrades } from './grades.js'
 
-function StatTile({ icon, label, value, detail, tone, href }) {
+// `shortLabel` replaces `label` on phones, where three tiles share one row.
+function StatTile({ icon, label, shortLabel, value, detail, tone, href }) {
   return (
     <Card sx={{ height: '100%' }}>
       <CardActionArea href={href} sx={{ height: '100%' }}>
-        <CardContent>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
-            {icon}
-            <Typography variant="body2">{label}</Typography>
+        <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            // Two lines' room on phones, so the numbers line up when a label wraps.
+            sx={{
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              color: 'text.secondary',
+              minHeight: { xs: '2.4em', sm: 0 },
+            }}
+          >
+            <Box sx={{ display: { xs: 'none', sm: 'flex' } }}>{icon}</Box>
+            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
+              {label}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ display: { xs: 'block', sm: 'none' }, lineHeight: 1.2 }}
+            >
+              {shortLabel}
+            </Typography>
           </Stack>
           <Typography
             variant="h3"
@@ -106,6 +124,7 @@ export default function OverviewPage({ courses, assignments, loading }) {
           <StatTile
             icon={<AssignmentLateIcon fontSize="small" />}
             label="Missing assignments"
+            shortLabel="Missing"
             value={missing.length}
             detail={
               missing.length
@@ -120,6 +139,7 @@ export default function OverviewPage({ courses, assignments, loading }) {
           <StatTile
             icon={<EventIcon fontSize="small" />}
             label="Due in the next 7 days"
+            shortLabel="Due soon"
             value={dueThisWeek.length}
             detail={`${upcoming.length} upcoming in total`}
             href="#assignments/upcoming"
@@ -129,6 +149,7 @@ export default function OverviewPage({ courses, assignments, loading }) {
           <StatTile
             icon={<TrendingDownIcon fontSize="small" />}
             label="Classes at C- or below"
+            shortLabel="Low grades"
             value={struggling.length}
             detail={
               struggling.length
@@ -147,7 +168,7 @@ export default function OverviewPage({ courses, assignments, loading }) {
         </Typography>
         <Grid container spacing={2}>
           {graded.map((c) => (
-            <Grid key={c.student_section_id} size={{ xs: 12, md: 6, lg: 4 }}>
+            <Grid key={c.student_section_id} size={{ xs: 12, sm: 6, lg: 4 }}>
               <CourseCard course={c} />
             </Grid>
           ))}
