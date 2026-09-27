@@ -1,0 +1,47 @@
+[project]
+name = "skyward-dashboard"
+version = "0.1.0"
+description = "A parent's dashboard for Skyward Qmlativ Family Access: grades, missing and upcoming assignments"
+license = "MIT"
+requires-python = ">=3.12"
+# Kept deliberately small: every dependency is supply-chain surface. Plain
+# uvicorn, not uvicorn[standard], whose extras (uvloop, httptools, watchfiles,
+# websockets, ...) this app doesn't need.
+dependencies = [
+    "apscheduler>=3.10,<4",
+    "fastapi>=0.115",
+    "httpx>=0.28.1",
+    "pydantic>=2.7",
+    "selectolax>=0.4.12",
+    "tzdata>=2026.4",
+    "uvicorn>=0.30",
+]
+
+# There's no [build-system]: the app runs from source and is never built as a
+# package, so no build backend gets fetched.
+
+[dependency-groups]
+dev = [
+    "black==26.5.1",  # exact, so CI and every checkout format identically
+    "pytest>=9.1.1",
+]
+# Only for scripts/ (studying the Skyward site). Not installed by default, in CI
+# or in the image: `uv sync --group tools`, then `uv run playwright install chromium`.
+tools = [
+    "playwright>=1.63.0",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.black]
+# Matches Prettier's print width in frontend/, so both halves wrap alike.
+line-length = 100
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# Only Starlette's notice that TestClient wants a different httpx; anything
+# else deprecated should show up.
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]

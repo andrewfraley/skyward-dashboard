@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuse commits containing anything that identifies the family (see scripts/check_pii.py).
+# Enabled per clone with: git config core.hooksPath .githooks
+exec uv run --quiet python scripts/check_pii.py --staged

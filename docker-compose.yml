@@ -1,0 +1,19 @@
+# Everything a user needs besides a .env file with their Skyward login (see
+# .env.example). In a checkout of the repo, docker-compose.override.yml builds
+# the source instead of pulling.
+services:
+  skyward-dashboard:
+    image: afraley/skyward-dashboard:latest
+    pull_policy: always     # fetch the newest release on every `docker compose up`
+    container_name: skyward-dashboard
+    env_file: .env          # SKYWARD_BASE_URL, SKYWARD_USER, SKYWARD_PASS
+    environment:
+      - PUID=1000           # on Linux, what `id -u` prints — the owner of ./data
+      - PGID=1000           # on Linux, what `id -g` prints
+      - TZ=Etc/UTC          # e.g. America/Chicago; the sync schedule runs in this timezone
+      # - SKYWARD_SYNC_CRON=0 6-21/3 * * *   # default: every 3 hours, 6am–9pm
+    volumes:
+      - ./data:/data:z      # :z is for SELinux (Fedora, RHEL); ignored everywhere else
+    ports:
+      - 8080:8080
+    restart: unless-stopped

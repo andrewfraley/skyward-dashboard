@@ -1,0 +1,11 @@
+# Only in a checkout of the repo; Compose merges it into docker-compose.yml
+# automatically. `docker compose up -d --build` builds this source instead of
+# pulling the published image.
+services:
+  skyward-dashboard:
+    build: .
+    image: skyward-dashboard:dev
+    pull_policy: build   # the base file's `always` would pull instead of building
+    # Lets a dev instance sit beside other apps: SKYWARD_PORT=8088 in .env.
+    ports: !override
+      - "${SKYWARD_PORT:-8080}:8080"

@@ -1,0 +1,79 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  courseTitle,
+  currentTerm,
+  dueLabel,
+  firstName,
+  formatScore,
+  gradeColor,
+  isStruggling,
+  timeAgo,
+} from './grades.js'
+
+const grades = [
+  { term: 'GP1', grade: 'D+', percent: 69.4, start_date: '2026-08-05', end_date: '2026-09-18' },
+  { term: 'GP2', grade: 'B+', percent: 86.7, start_date: '2026-09-21', end_date: '2026-10-30' },
+  { term: 'GP3', grade: null },
+  { term: 'S1', grade: 'C-', percent: 71.6 },
+]
+
+describe('currentTerm', () => {
+  it('picks the grading period containing today', () => {
+    expect(currentTerm(grades, '2026-09-27').term).toBe('GP2')
+    expect(currentTerm(grades, '2026-09-01').term).toBe('GP1')
+  })
+  it('falls back to the latest graded period', () => {
+    expect(currentTerm(grades, '2026-12-01').term).toBe('GP2')
+  })
+  it('ignores semester grades and handles nothing graded', () => {
+    expect(currentTerm([{ term: 'S1', grade: 'A' }])).toBeNull()
+    expect(currentTerm([])).toBeNull()
+  })
+})
+
+describe('grades', () => {
+  it('colours by band', () => {
+    expect(gradeColor('A-')).toBe('success')
+    expect(gradeColor('C+')).toBe('warning')
+    expect(gradeColor('F')).toBe('error')
+    expect(gradeColor(null)).toBe('default')
+  })
+  it('flags C- and below', () => {
+    expect(['C-', 'D+', 'F'].map(isStruggling)).toEqual([true, true, true])
+    expect(['C', 'B-'].map(isStruggling)).toEqual([false, false])
+  })
+})
+
+describe('dates and labels', () => {
+  const today = '2026-09-27'
+  it('labels due dates relative to today', () => {
+    expect(dueLabel('2026-09-27', today)).toBe('Today')
+    expect(dueLabel('2026-09-28', today)).toBe('Tomorrow')
+    expect(dueLabel('2026-09-30', today)).toBe('In 3 days')
+    expect(dueLabel('2026-09-24', today)).toBe('3 days ago')
+    expect(dueLabel(null, today)).toBe('No due date')
+  })
+  it('formats time ago', () => {
+    const now = Date.parse('2026-09-27T12:00:00Z')
+    expect(timeAgo('2026-09-27T11:55:00Z', now)).toBe('5 minutes ago')
+    expect(timeAgo('2026-09-27T09:00:00Z', now)).toBe('3 hours ago')
+    expect(timeAgo('2026-09-26T12:00:00Z', now)).toBe('1 day ago')
+    expect(timeAgo(null, now)).toBe('never')
+  })
+})
+
+describe('names', () => {
+  it('shortens and title-cases', () => {
+    expect(firstName('DOE, JANE Q')).toBe('Jane')
+    expect(courseTitle('ENGLISH 8 AP-I')).toBe('English 8 AP-I')
+    expect(courseTitle('ART OF THE STARS & SEAS')).toBe('Art of the Stars & Seas')
+    expect(courseTitle('SEMI-CONDUCTORS 9-I')).toBe('Semi-Conductors 9-I')
+    expect(courseTitle('CONCERT CHOIR-II')).toBe('Concert Choir-II')
+    expect(courseTitle('FORM ASSESSMENTS')).toBe('Form Assessments')
+  })
+  it('formats scores', () => {
+    expect(formatScore({ score: 12.5, max_score: 25 })).toBe('12.5 / 25')
+    expect(formatScore({ score: null, max_score: 10 })).toBe('– / 10')
+  })
+})
