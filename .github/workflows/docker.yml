@@ -3,13 +3,16 @@ name: Build and publish
 # Releases happen when a person merges a pull request to main. If main's
 # pyproject.toml has a version with no tag yet, the main build publishes the
 # image as that version, then tags it and creates the GitHub release from
-# docs/releases/<version>.md.
+# docs/releases/<version>.md. Last, it moves the `stable` branch to the
+# release, for a Home Assistant add-on to read (DEVELOPING.md, "Releases").
 
 on:
   push:
     # Every branch builds, so a branch can be pulled and tried before it
-    # merges. Only a release moves `latest`.
-    branches: ["**"]
+    # merges. Only a release moves `latest`. `stable` is left out: the release
+    # job moves it to a commit main already built, with a deploy key, and
+    # unlike the workflow's own token that push starts a run.
+    branches: ["**", "!stable"]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -167,13 +170,20 @@ jobs:
       github.event_name == 'push' && github.ref == 'refs/heads/main' &&
       needs.test.outputs.release == 'true' && needs.image.outputs.pushed == 'true'
     runs-on: ubuntu-latest
-    # Only main may deploy to this environment (a branch policy on it).
+    # Only main may deploy to this environment (a branch policy on it), and it
+    # holds STABLE_DEPLOY_KEY.
     environment: release
     permissions:
       contents: write
     steps:
+      # The deploy key, not the workflow's token: that token may not push a
+      # commit that changes .github/workflows/, and moving stable does. Full
+      # history so the push below has every commit it names.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Skipped if it already exists, so a re-run is harmless.
+        with:
+          ssh-key: ${{ secrets.STABLE_DEPLOY_KEY }}
+          fetch-depth: 0
+      # Skipped if it already exists, so a re-run gets on to moving stable.
       - name: Tag v${{ needs.test.outputs.version }} and publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -182,3 +192,10 @@ jobs:
           gh release view "v$VERSION" >/dev/null 2>&1 && exit 0
           gh release create "v$VERSION" --target "$GITHUB_SHA" \
             --title "Skyward Dashboard $VERSION" --notes-file "docs/releases/$VERSION.md"
+      # A Home Assistant add-on is read from git, so it must only see a version
+      # once that version's image exists: stable moves after the release, and
+      # a failure here can't hold the release up for Docker users. No --force:
+      # git refuses anything but a fast-forward, and pushing the same commit
+      # again is a no-op.
+      - name: Move stable to this release
+        run: git push origin "$GITHUB_SHA:refs/heads/stable"
