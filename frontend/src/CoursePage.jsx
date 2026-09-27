@@ -15,6 +15,7 @@ import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
+import { useTheme } from '@mui/material/styles'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { LineChart } from '@mui/x-charts/LineChart'
 
@@ -109,6 +110,7 @@ function CategoryBreakdown({ term }) {
  * change. A single series, so no legend: the heading names it.
  */
 function GradeTrend({ history, term }) {
+  const theme = useTheme()
   const points = history.filter((h) => h.term === term && h.percent != null)
   if (points.length < 2) {
     return (
@@ -117,31 +119,53 @@ function GradeTrend({ history, term }) {
       </Typography>
     )
   }
+  const first = points[0]
+  const last = points[points.length - 1]
+  const when = (p) => shortDate(p.recorded_at.slice(0, 10))
   return (
-    <LineChart
-      height={220}
-      xAxis={[
-        {
-          scaleType: 'time',
-          data: points.map((p) => new Date(p.recorded_at)),
-          valueFormatter: (d) =>
-            d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-        },
-      ]}
-      yAxis={[{ valueFormatter: (v) => `${v}%` }]}
-      series={[
-        {
-          data: points.map((p) => p.percent),
-          label: `${term} percent`,
-          valueFormatter: (v, { dataIndex }) => `${formatPercent(v)} (${points[dataIndex].grade})`,
-          curve: 'linear',
-          showMark: true,
-        },
-      ]}
-      hideLegend
-      grid={{ horizontal: true }}
-      margin={{ left: 8, right: 16, top: 16, bottom: 8 }}
-    />
+    <>
+      {/* The chart's gist in words, for anyone who can't see it. */}
+      <Typography variant="body2" color="text.secondary">
+        From {formatPercent(first.percent)} ({first.grade}) on {when(first)} to{' '}
+        {formatPercent(last.percent)} ({last.grade}) on {when(last)}
+      </Typography>
+      {/* The chart takes keyboard focus (arrow keys step through the points, which
+          are announced) but hides its own focus ring, so draw one around it. */}
+      <LineChart
+        sx={(theme) => ({
+          borderRadius: 1,
+          '&:has(:focus-visible)': {
+            outline: `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: 2,
+          },
+        })}
+        height={220}
+        xAxis={[
+          {
+            scaleType: 'time',
+            data: points.map((p) => new Date(p.recorded_at)),
+            valueFormatter: (d) =>
+              d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          },
+        ]}
+        yAxis={[{ valueFormatter: (v) => `${v}%` }]}
+        series={[
+          {
+            data: points.map((p) => p.percent),
+            label: `${term} percent`,
+            valueFormatter: (v, { dataIndex }) =>
+              `${formatPercent(v)} (${points[dataIndex].grade})`,
+            // The theme's primary: 3:1 or better against the card in both themes (1.4.11).
+            color: theme.palette.primary.main,
+            curve: 'linear',
+            showMark: true,
+          },
+        ]}
+        hideLegend
+        grid={{ horizontal: true }}
+        margin={{ left: 8, right: 16, top: 16, bottom: 8 }}
+      />
+    </>
   )
 }
 
