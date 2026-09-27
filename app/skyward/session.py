@@ -48,6 +48,14 @@ class LoginError(SkywardError):
     pass
 
 
+class SessionExpired(SkywardError):
+    """Skyward sent a request back to the sign-in page part way through a sync.
+
+    Skyward allows one session per account, so this is usually the parent
+    signing in on their own browser.
+    """
+
+
 @dataclass
 class Page:
     url: str
@@ -128,8 +136,15 @@ class SkywardSession:
     def __enter__(self):
         return self
 
-    def __exit__(self, *exc):
-        self.close()
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self.close()
+            return
+        # Already failing: don't let a cookie-save error hide the real cause.
+        try:
+            self.close()
+        except Exception:
+            log.exception("Couldn't save the Skyward cookies")
 
     # -- pages --------------------------------------------------------------
 
@@ -216,16 +231,14 @@ class SkywardSession:
                 "Accept": "application/json, text/javascript, */*; q=0.01",
             },
         )
-        r.raise_for_status()
+        _check(r)
         try:
             payload = r.json()
         except ValueError as e:
             raise SkywardError(
                 f"GetBrowse {name} returned non-JSON ({r.headers.get('content-type')})"
             ) from e
-        match = re.search(r"registerBrowse\((\{.*\})\)", payload.get("script", ""), re.S)
-        meta = json.loads(match.group(1)) if match else {}
-        return Browse(html=payload.get("html", ""), meta=meta)
+        return Browse(html=payload.get("html", ""), meta=parse_register_browse(payload))
 
     def open_panel(self, page: Page, path: str, cell_attrs: dict[str, str]) -> Page:
         """Open the details panel a grid cell links to, e.g. a grade breakdown.
@@ -254,8 +267,35 @@ class SkywardSession:
                 "Referer": page.url,
             },
         )
-        r.raise_for_status()
+        _check(r)
         return parse_page(str(r.url), r.text, csrf=page.csrf)
+
+    def post(self, page: Page, path: str, data: dict[str, str]) -> httpx.Response:
+        """POST a form the way `page`'s scripts do (its CSRF token and window ids)."""
+        r = self.client.post(
+            path,
+            params={"w": page.w, "p": page.p},
+            data=data,
+            headers={
+                "X-CSRF-Token": page.csrf,
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": page.url,
+            },
+        )
+        _check(r)
+        return r
+
+
+def _check(r: httpx.Response) -> None:
+    """Raise for an HTTP error, or for a request that ended on the sign-in page.
+
+    Redirects are followed, so a request made after Skyward ended the session
+    arrives at the sign-in page with a 200. Only page() signs in again; any
+    other request landing there did nothing.
+    """
+    r.raise_for_status()
+    if "/Session/Signin" in str(r.url):
+        raise SessionExpired("Skyward ended the session part way through (a sign-in elsewhere?)")
 
 
 # -- cookie persistence -------------------------------------------------------
@@ -304,16 +344,32 @@ def load_cookies(jar: http.cookiejar.CookieJar, path: Path, owner: str) -> int:
     except (OSError, ValueError):
         log.warning("Ignoring unreadable cookie file %s", path)
         return 0
-    if data.get("format") != _COOKIE_FORMAT or data.get("owner") != owner:
+    if (
+        not isinstance(data, dict)
+        or data.get("format") != _COOKIE_FORMAT
+        or data.get("owner") != owner
+    ):
         log.info("Cookie file %s is for another site or account; starting fresh", path)
         return 0
+    try:
+        cookies = _cookies_from_json(data.get("cookies", []))
+    except (AttributeError, KeyError, TypeError, ValueError):
+        log.warning("Ignoring malformed cookie file %s", path)
+        return 0
+    for cookie in cookies:
+        jar.set_cookie(cookie)
+    return len(cookies)
+
+
+def _cookies_from_json(entries: list[dict]) -> list[http.cookiejar.Cookie]:
+    """The unexpired cookies in a saved file's list; raises if an entry is malformed."""
     now = time.time()
-    loaded = 0
-    for c in data.get("cookies", []):
+    cookies = []
+    for c in entries:
         if c.get("expires") is not None and c["expires"] <= now:
             continue
         domain = c["domain"]
-        jar.set_cookie(
+        cookies.append(
             http.cookiejar.Cookie(
                 version=0,
                 name=c["name"],
@@ -333,8 +389,7 @@ def load_cookies(jar: http.cookiejar.CookieJar, path: Path, owner: str) -> int:
                 rest={"HttpOnly": None} if c.get("httponly") else {},
             )
         )
-        loaded += 1
-    return loaded
+    return cookies
 
 
 # -- parsing helpers ---------------------------------------------------------
@@ -360,6 +415,19 @@ def parse_page(url: str, html: str, csrf: str | None = None) -> Page:
         w=query.get("w", [""])[0],
         browses=parse_browse_configs(html),
     )
+
+
+def parse_register_browse(payload: dict) -> dict:
+    """The grid metadata from a GetBrowse reply's `registerBrowse({...})` call."""
+    script = payload.get("script", "")
+    call = re.search(r"registerBrowse\(\s*(?=\{)", script)
+    if not call:
+        return {}
+    try:
+        meta, _ = json.JSONDecoder().raw_decode(script, call.end())
+    except ValueError as e:
+        raise SkywardError("GetBrowse metadata (registerBrowse) isn't valid JSON") from e
+    return meta
 
 
 _BROWSE_START = re.compile(r"browseList\['([^']+)'\]\s*=\s*\{")

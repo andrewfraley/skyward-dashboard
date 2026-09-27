@@ -11,7 +11,7 @@ import stat
 import httpx
 import pytest
 
-from app.skyward.session import SkywardSession
+from app.skyward.session import SkywardSession, cookie_owner
 
 BASE = "https://skyward.example.org"
 PAGE = "/Student/Grading/StudentSection/FamilyAccess"
@@ -124,3 +124,33 @@ def test_unreadable_cookie_file_is_ignored(site, tmp_path):
     jar.write_text("not json")
     assert run(site, jar) == 1
     assert json.loads(jar.read_text())["cookies"]
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        [],  # valid JSON, wrong shape
+        {"format": 1, "owner": cookie_owner(BASE, "parent"), "cookies": [{"name": "x"}]},
+        {"format": 1, "owner": cookie_owner(BASE, "parent"), "cookies": "nope"},
+    ],
+)
+def test_malformed_cookie_file_is_ignored(site, tmp_path, content):
+    jar = tmp_path / "skyward-cookies.json"
+    jar.write_text(json.dumps(content))
+    assert run(site, jar) == 1
+    assert json.loads(jar.read_text())["cookies"]
+
+
+def test_a_cookie_save_error_does_not_hide_why_the_sync_failed(site, tmp_path, monkeypatch):
+    import app.skyward.session as session
+
+    def fail(*args):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(session, "save_cookies", fail)
+    with pytest.raises(ValueError, match="the real problem"):
+        with SkywardSession(
+            BASE, "parent", "pw", cookie_file=tmp_path / "c.json",
+            transport=httpx.MockTransport(site.handler),
+        ):  # fmt: skip
+            raise ValueError("the real problem")
