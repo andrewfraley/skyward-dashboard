@@ -15,7 +15,8 @@ if [ "$(id -u)" = 0 ]; then
     gid="${PGID:-1000}"
     # Docker Desktop's shared folders don't always support chown, and there the
     # container can write regardless, so a failure here is only worth a warning.
-    find /data -xdev -user 0 -exec chown "$uid:$gid" {} + 2>/dev/null \
+    # -h: a symlink is claimed itself, never whatever it points at.
+    find /data -xdev -user 0 -exec chown -h "$uid:$gid" {} + 2>/dev/null \
         || echo "skyward-dashboard: couldn't change ownership of /data to $uid:$gid; continuing" >&2
 
     # A PUID that doesn't match the folder's owner otherwise surfaces as a Python
@@ -36,7 +37,7 @@ if [ "$(id -u)" = 0 ]; then
         fi
     fi
 
-    exec setpriv --reuid="$uid" --regid="$gid" --clear-groups -- "$@"
+    exec setpriv --reuid="$uid" --regid="$gid" --clear-groups --no-new-privs -- "$@"
 fi
 
 # Started as a non-root user (`user:`, runAsUser): no rights to fix anything up.

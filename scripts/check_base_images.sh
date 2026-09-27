@@ -13,11 +13,14 @@ dockerfile="${1:-Dockerfile}"
 # Stage names (FROM ... AS name) are references to earlier stages, not images.
 stages=$(sed -nE 's/^FROM[[:space:]].*[[:space:]]AS[[:space:]]+([^[:space:]]+).*/\1/Ip' "$dockerfile" | tr 'A-Z' 'a-z')
 
-# Image references: the argument of FROM (after any --flag=...) and of COPY --from=.
+# Image references: the argument of FROM (after any --flag=...), of COPY --from=,
+# and the from= of a RUN --mount (which can mount an image, not just a stage).
 images=$(
     {
         sed -nE 's/^FROM[[:space:]]+(--[^[:space:]]+[[:space:]]+)*([^[:space:]]+).*/\2/Ip' "$dockerfile"
         grep -oiE -- '--from=[^[:space:]]+' "$dockerfile" | sed 's/^--from=//I'
+        grep -oiE -- '--mount=[^[:space:]]+' "$dockerfile" | grep -oiE '(^|,)from=[^,[:space:]]+' \
+            | sed -E 's/^,?from=//I'
     } | sort -u
 )
 

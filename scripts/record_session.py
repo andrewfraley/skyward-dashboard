@@ -27,6 +27,7 @@ from playwright.sync_api import Error, Response, sync_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.config import load_settings  # noqa: E402
+from browser_cookies import keep_cookies, save_storage_state, use_saved_cookies  # noqa: E402
 
 START_PATH = "/Student/Gradebook/StudentAssignment/FamilyAccessAssignmentList"
 
@@ -147,11 +148,17 @@ def main() -> None:
     )
     recorder = Recorder(out_dir)
     print(f"Recording to {out_dir}\nLog in and click around; close the browser window when done.\n")
+    # For the configured site, start from the app's saved session (the same
+    # device, so no new-sign-in email) and hand the ending session back to it.
+    settings = load_settings()
+    share = bool(settings.base_url and settings.username) and url.startswith(settings.base_url)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         context = browser.new_context(no_viewport=True)
         context.on("response", recorder.on_response)
+        if share:
+            use_saved_cookies(context, settings.base_url, settings.username)
         page = context.new_page()
         try:
             page.goto(url)
@@ -171,7 +178,7 @@ def main() -> None:
                 try:
                     context.pages[0].wait_for_timeout(500)
                     if time.monotonic() - last_save > 5:
-                        context.storage_state(path=state_file)
+                        save_storage_state(context, state_file)
                         last_save = time.monotonic()
                 except Error:
                     continue  # the page we waited on was closed; re-check
@@ -179,7 +186,9 @@ def main() -> None:
             pass
         finally:
             try:
-                context.storage_state(path=state_file)
+                save_storage_state(context, state_file)
+                if share:
+                    keep_cookies(context, settings.base_url, settings.username)
                 browser.close()
             except Error:
                 pass

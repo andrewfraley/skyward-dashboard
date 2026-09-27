@@ -51,8 +51,9 @@ jobs:
         run: |
           version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
           ui=$(python3 -c 'import json; print(json.load(open("frontend/package.json"))["version"])')
-          if [ "$version" != "$ui" ]; then
-            echo "::error::pyproject.toml says $version but frontend/package.json says $ui. Bump both."
+          lock=$(python3 -c 'import json; print(json.load(open("frontend/package-lock.json"))["version"])')
+          if [ "$version" != "$ui" ] || [ "$version" != "$lock" ]; then
+            echo "::error::pyproject.toml says $version, frontend/package.json $ui and its package-lock.json $lock. Bump all three (npm --prefix frontend install --package-lock-only)."
             exit 1
           fi
           # --exit-code gives 2 when there's no such tag. Anything else is an
