@@ -44,7 +44,34 @@ function buildTheme(mode) {
           },
         },
       },
+      // Selects (the table's rows-per-page, the student picker) aren't ButtonBase,
+      // so they need the same focus outline themselves.
+      MuiSelect: {
+        styleOverrides: {
+          select: {
+            '&:focus-visible': { outline: `2px solid ${PRIMARY[mode]}`, outlineOffset: 2 },
+          },
+        },
+      },
       MuiCard: { defaultProps: { variant: 'outlined' } },
+      // MUI's toggle buttons have a faint border and mark the selected one with a
+      // barely different grey, so they hardly read as buttons, least of all in
+      // dark mode. Borders at 3:1 or better (WCAG 1.4.11), and the selected one
+      // filled and bold, so it doesn't rest on colour alone.
+      MuiToggleButton: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            color: theme.palette.text.primary,
+            borderColor: theme.palette.grey[600],
+            '&.Mui-selected, &.Mui-selected:hover': {
+              color: theme.palette.primary.contrastText,
+              backgroundColor: theme.palette.primary.main,
+              borderColor: theme.palette.primary.main,
+              fontWeight: 700,
+            },
+          }),
+        },
+      },
     },
   })
 }
