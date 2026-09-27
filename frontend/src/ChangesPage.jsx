@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Card from '@mui/material/Card'
+import LinearProgress from '@mui/material/LinearProgress'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemIcon from '@mui/material/ListItemIcon'
@@ -20,7 +21,9 @@ const KINDS = {
   grade_changed: {
     icon: <SwapVertIcon />,
     color: 'primary',
-    text: (c) => `${c.subject} grade changed: ${c.old} → ${c.new}`,
+    // No old grade: the grading period got its first one.
+    text: (c) =>
+      c.old ? `${c.subject} grade changed: ${c.old} → ${c.new}` : `${c.subject} graded: ${c.new}`,
   },
   now_missing: {
     icon: <AssignmentLateIcon />,
@@ -34,12 +37,12 @@ const KINDS = {
   },
   scored: {
     icon: <GradeIcon />,
-    color: 'action',
+    color: 'text.secondary',
     text: (c) => `Scored: ${c.subject} — ${c.new}${c.old ? ` (was ${c.old})` : ''}`,
   },
   new_assignment: {
     icon: <FiberNewIcon />,
-    color: 'action',
+    color: 'text.secondary',
     text: (c) => `New: ${c.subject}${c.new ? ` — ${c.new}` : ''}`,
   },
 }
@@ -49,13 +52,22 @@ export default function ChangesPage({ studentId, version }) {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    let cancelled = false
     api
       .getChanges(studentId, 200)
-      .then(setChanges)
-      .catch((e) => setError(e.message))
+      .then((list) => {
+        if (cancelled) return
+        setChanges(list)
+        setError(null)
+      })
+      .catch((e) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
   }, [studentId, version])
 
   if (error) return <Alert severity="error">{error}</Alert>
+  if (changes == null) return <LinearProgress aria-label="Loading changes" />
   if (changes && changes.length === 0) {
     return (
       <Typography color="text.secondary">
@@ -66,14 +78,19 @@ export default function ChangesPage({ studentId, version }) {
   return (
     <Card>
       <List dense>
-        {(changes || []).map((c) => {
-          const kind = KINDS[c.kind] || { icon: <GradeIcon />, color: 'action', text: () => c.kind }
+        {changes.map((c) => {
+          const kind = KINDS[c.kind] || {
+            icon: <GradeIcon />,
+            color: 'text.secondary',
+            text: () => c.kind,
+          }
+          const color = kind.color.includes('.') ? kind.color : `${kind.color}.main`
           return (
             <ListItem key={c.id} divider>
-              <ListItemIcon sx={{ color: `${kind.color}.main` }}>{kind.icon}</ListItemIcon>
+              <ListItemIcon sx={{ color }}>{kind.icon}</ListItemIcon>
               <ListItemText
                 primary={kind.text(c)}
-                secondary={`${courseTitle(c.course)} · ${timeAgo(c.at)}`}
+                secondary={[courseTitle(c.course), timeAgo(c.at)].filter(Boolean).join(' · ')}
               />
             </ListItem>
           )
