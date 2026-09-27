@@ -53,6 +53,7 @@ are on the GitHub releases page.
 
 Everything is read-only over the local copy, except `POST /api/sync`.
 
+- `GET /api/ping`: liveness and the running version
 - `GET /api/status`: the last update, the next scheduled one, whether one is running
 - `POST /api/sync`: update now (409 if one is running)
 - `GET /api/students`

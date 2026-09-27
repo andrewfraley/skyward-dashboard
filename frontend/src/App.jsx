@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography'
 import * as api from './api.js'
 import AssignmentsPage from './AssignmentsPage.jsx'
 import ChangesPage from './ChangesPage.jsx'
+import Footer from './Footer.jsx'
 import { firstName } from './grades.js'
 import OverviewPage from './OverviewPage.jsx'
 import SyncStatus from './SyncStatus.jsx'
@@ -108,7 +109,8 @@ export default function App() {
   }
 
   return (
-    <Box sx={{ pb: 6 }}>
+    // A full-height column, so the footer sits at the bottom even on short pages.
+    <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <AppBar
         position="sticky"
         color="default"
@@ -159,6 +161,7 @@ export default function App() {
         )}
         <Suspense fallback={<LinearProgress />}>{page}</Suspense>
       </Container>
+      <Footer />
     </Box>
   )
 }
