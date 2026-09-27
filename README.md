@@ -23,6 +23,9 @@ machine; the dashboard never waits on Skyward, and nothing is sent anywhere else
 It works on phones, and you can add it to your home screen: in Safari, **Share → Add to Home
 Screen**; in Chrome, **⋮ → Add to home screen** (or **Install app**).
 
+It follows your device's light or dark setting. The button at the top right switches between
+automatic, light and dark; each browser remembers its own choice.
+
 ## Install
 
 You need Docker. In a new folder, create `.env` with your district's Family Access address and
