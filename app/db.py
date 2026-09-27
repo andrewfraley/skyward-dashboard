@@ -6,6 +6,7 @@ after diffing it against what was there to record what changed.
 """
 
 import json
+import os
 import sqlite3
 from collections import Counter
 from contextlib import contextmanager
@@ -102,6 +103,12 @@ class Database:
         self.path = path
         with self.connect() as db:
             db.executescript(SCHEMA)
+        # A child's grades: owner only, like the cookie file. SQLite gives
+        # its journal files the database's permissions.
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass  # not ours to change (a read-only copy, say); it still works
 
     @contextmanager
     def connect(self):

@@ -4,7 +4,9 @@
 
 async function request(path, options = {}) {
   const response = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
+    // X-Requested-With: the server refuses POST api/sync without it, so a
+    // page on another site can't start a sync (it would need CORS approval).
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
     ...options,
   })
   const text = await response.text()
@@ -18,8 +20,11 @@ async function request(path, options = {}) {
   }
   if (!response.ok) {
     const detail = body?.detail
-    if (!detail) throw new Error(`HTTP ${response.status}`)
-    throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail))
+    const error = new Error(
+      !detail ? `HTTP ${response.status}` : typeof detail === 'string' ? detail : 'Bad request',
+    )
+    error.status = response.status
+    throw error
   }
   return body
 }

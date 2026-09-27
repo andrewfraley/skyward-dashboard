@@ -12,7 +12,7 @@ from app.config import Settings, load_settings
 from app.db import Database
 from app.skyward.client import fetch_snapshot
 from app.skyward.models import Snapshot
-from app.skyward.session import SkywardError, SkywardSession
+from app.skyward.session import LoginError, SkywardError, SkywardSession
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +32,10 @@ class Syncer:
         self.settings = settings
         self.db = db
         self._lock = threading.Lock()
+        # Set when Skyward rejects the sign-in. Automatic syncs stop until a
+        # sync succeeds or the app restarts (as it does when .env changes):
+        # retrying a wrong password every few hours can lock the account.
+        self.login_failed: str | None = None
 
     @property
     def running(self) -> bool:
@@ -64,8 +68,11 @@ class Syncer:
             message = self._redact(f"{type(e).__name__}: {e}")
             log.error("Sync %d failed: %s", run_id, message)
             log.debug("Sync %d traceback", run_id, exc_info=True)
+            if isinstance(e, LoginError):
+                self.login_failed = message
             self.db.finish_run(run_id, error=message)
             return self.db.last_runs(1)[0]
+        self.login_failed = None
         self.db.finish_run(run_id, changes=changes)
         log.info(
             "Sync %d ok: %d courses, %d assignments, %d changes (%s)",

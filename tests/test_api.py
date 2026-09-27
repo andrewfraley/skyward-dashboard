@@ -35,7 +35,8 @@ def test_status_without_credentials(client):
     body = client.get("/api/status").json()
     assert body["last_success"]["status"] == "ok"
     assert body["next_run"] is None and body["syncing"] is False
-    assert client.post("/api/sync").status_code == 400
+    r = client.post("/api/sync", headers={"X-Requested-With": "XMLHttpRequest"})
+    assert r.status_code == 400
 
 
 def test_students_courses_assignments(client):
@@ -61,3 +62,89 @@ def test_course_detail(client):
 def test_unknown_api_path_is_json_404(client):
     r = client.get("/api/nope")
     assert r.status_code == 404 and r.json()["detail"]
+
+
+@pytest.fixture
+def live(tmp_path, monkeypatch):
+    """An app with (fake) credentials, whose syncs are recorded instead of run."""
+    monkeypatch.setenv("SKYWARD_BASE_URL", "https://skyward.example.org")
+    monkeypatch.setenv("SKYWARD_USER", "parent")
+    monkeypatch.setenv("SKYWARD_PASS", "pw")
+    monkeypatch.setenv("SKYWARD_DATA_DIR", str(tmp_path))
+    save(Database(tmp_path / "skyward.db"), snapshot())
+    from app.main import app
+
+    with TestClient(app) as c:
+        c.started = []
+        monkeypatch.setattr(
+            c.app.state.scheduler, "add_job", lambda func, args: c.started.append(func)
+        )
+        yield c
+
+
+XHR = {"X-Requested-With": "XMLHttpRequest"}
+
+
+def age_last_run(client, minutes):
+    db = client.app.state.db
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE sync_runs SET started_at = datetime('now', ?) || '+00:00'",
+            (f"-{minutes} minutes",),
+        )
+
+
+def test_sync_needs_the_header_a_cross_site_page_cannot_send(live):
+    age_last_run(live, 60)
+    assert live.post("/api/sync").status_code == 403
+    assert live.post("/api/sync", headers=XHR).status_code == 202
+    assert len(live.started) == 1
+
+
+def test_sync_by_hand_waits_for_the_cooldown(live):
+    r = live.post("/api/sync", headers=XHR)  # the seeded sync just ran
+    assert r.status_code == 429 and int(r.headers["retry-after"]) > 0
+    assert "try again" in r.json()["detail"]
+    assert not live.started
+
+
+def test_sync_already_running_is_409(live):
+    age_last_run(live, 60)
+    syncer = live.app.state.syncer
+    syncer._lock.acquire()
+    try:
+        assert live.post("/api/sync", headers=XHR).status_code == 409
+    finally:
+        syncer._lock.release()
+
+
+def test_a_rejected_sign_in_pauses_automatic_syncs(live, monkeypatch):
+    import app.main as main
+    import app.sync as sync
+    from app.skyward.session import LoginError
+
+    def reject(session):
+        raise LoginError("Sign-in was rejected")
+
+    monkeypatch.setattr(sync, "fetch_snapshot", reject)
+    syncer = live.app.state.syncer
+    assert syncer.run()["status"] == "error"
+    assert live.get("/api/status").json()["paused"] is True
+
+    ran = []
+    monkeypatch.setattr(syncer, "run", lambda: ran.append(1))
+    main._scheduled_sync(syncer)
+    assert not ran  # skipped while paused
+
+    # A good sync (by hand, say) resumes them.
+    monkeypatch.undo()
+    monkeypatch.setattr(sync, "fetch_snapshot", lambda session: snapshot())
+    assert syncer.run()["status"] == "ok"
+    assert live.get("/api/status").json()["paused"] is False
+
+
+def test_changes_limit_must_be_positive(client):
+    # SQLite reads LIMIT -1 as no limit at all.
+    assert client.get("/api/changes", params={"limit": -1}).status_code == 422
+    assert client.get("/api/changes", params={"limit": 0}).status_code == 422
+    assert client.get("/api/changes", params={"limit": 10_000}).status_code == 200

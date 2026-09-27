@@ -94,3 +94,11 @@ def test_stale_runs_are_failed(db):
     db.start_run()
     db.fail_stale_runs()
     assert db.last_runs(1)[0]["status"] == "error"
+
+
+def test_database_is_owner_only(tmp_path):
+    import stat
+
+    path = tmp_path / "skyward.db"
+    Database(path)
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600

@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+# Whatever the app creates in /data (the database, the saved Skyward session)
+# is readable by its owner only.
+umask 077
+
 # Starts as root so it can fix up /data, then runs Skyward Dashboard as PUID:PGID — the
 # same convention as LinuxServer.io images. Docker creates a missing bind-mount
 # folder as root, so anyone who skipped `mkdir data` would otherwise get a folder
