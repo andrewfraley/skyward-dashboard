@@ -12,7 +12,7 @@ from datetime import date, datetime
 from selectolax.parser import HTMLParser, Node
 
 from app.skyward.models import Assignment, Category, Course, Student, TermGrade
-from app.skyward.session import Browse, Page
+from app.skyward.session import Browse, Page, SkywardError
 
 GRADE_BREAKDOWN_PATH = "/Student/Gradebook/ProgressReport/GradeBucketBreakdownFamilyAccess/{}"
 
@@ -102,6 +102,7 @@ def parse_grades(browse: Browse, student_id: int) -> list[tuple[Course, list[Gra
     header = doc.css_first("tr[id$=_unlockedHeaderRow]")
     labels = [_text(td) for td in header.css("td")] if header else []
 
+    _check_complete(browse, "grades")
     result = []
     for tr in _rows(browse.html):
         tds = tr.css("td")
@@ -121,7 +122,7 @@ def parse_grades(browse: Browse, student_id: int) -> list[tuple[Course, list[Gra
         )
         cells = []
         for i, td in enumerate(tds[2:], start=2):
-            term = labels[i] if i < len(labels) else f"col{i}"
+            term = _term_label(labels, i)
             grade = clean_grade(td.text(strip=True))
             course.grades.append(TermGrade(term=term, grade=grade))
             if grade and td.attributes.get("data-student-grade-bucket-id"):
@@ -129,6 +130,28 @@ def parse_grades(browse: Browse, student_id: int) -> list[tuple[Course, list[Gra
                 cells.append(GradeCell(term, grade, {k: v or "" for k, v in td.attributes.items()}))
         result.append((course, cells))
     return result
+
+
+def _term_label(labels: list[str], i: int) -> str:
+    """Column i's header, made unique: a term is part of term_grades' key."""
+    label = labels[i] if i < len(labels) and labels[i] else f"col{i}"
+    if label in labels[:i]:
+        label = f"{label} ({i})"
+    return label
+
+
+def _check_complete(browse: Browse, what: str) -> None:
+    """Refuse a grid with fewer rows than Skyward says it has.
+
+    Saving part of a grid would make the missing rows look deleted, so a
+    Skyward change that starts paging grids should fail loudly instead. An
+    empty grid still reports a recordCount of 1 (its "no records" row) but no
+    primaryKeys, so the count only means something when there are keys.
+    """
+    keys = browse.meta.get("primaryKeys") or []
+    expected = browse.meta.get("recordCount")
+    if keys and isinstance(expected, int) and expected > len(keys):
+        raise SkywardError(f"The {what} grid has {expected} rows but only {len(keys)} arrived")
 
 
 def parse_breakdown_header(html: str) -> dict:
@@ -203,8 +226,15 @@ def parse_assignments(browse: Browse, student_id: int, status: str) -> list[Assi
     Row n's assignment id is primaryKeys[n]. Cells are matched to fields via
     each cell's data-column index into columnFieldNames.
     """
+    _check_complete(browse, f"{status} assignments")
     fields = browse.fields
     keys = browse.meta.get("primaryKeys") or []
+    if len(keys) != len(_rows(browse.html)):
+        # Row n's id is keys[n]; a stray row would shift every id after it.
+        raise SkywardError(
+            f"The {status} assignments grid has {len(_rows(browse.html))} rows "
+            f"but {len(keys)} ids"
+        )
     out = []
     for n, tr in enumerate(_rows(browse.html)):
         if n >= len(keys):

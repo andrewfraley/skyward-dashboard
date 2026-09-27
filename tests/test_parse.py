@@ -15,7 +15,8 @@ from app.skyward.parse import (
     parse_grades,
     parse_students,
 )
-from app.skyward.session import Browse, parse_browse_configs, parse_page
+from app.skyward.parse import _term_label
+from app.skyward.session import Browse, parse_browse_configs, parse_page, parse_register_browse
 
 FIXTURES = Path(__file__).parent / "fixtures"
 STUDENT_ID = 100001
@@ -124,3 +125,16 @@ def test_assignments(fixture, status):
         assert a.teacher.startswith("TEACHER ")
     if status == "missing":
         assert all(a.max_score for a in assignments)
+
+
+def test_term_labels_are_unique():
+    labels = ["Course", "Missing", "GP1", "", "GP1", "S1"]
+    terms = [_term_label(labels, i) for i in range(2, 7)]
+    assert terms == ["GP1", "col3", "GP1 (4)", "S1", "col6"]
+    assert len(set(terms)) == len(terms)
+
+
+def test_register_browse_stops_at_the_end_of_its_object():
+    script = 'a.registerBrowse({"recordCount": 2, "x": "})"});\nother({b: 1});'
+    assert parse_register_browse({"script": script}) == {"recordCount": 2, "x": "})"}
+    assert parse_register_browse({"script": ""}) == {}

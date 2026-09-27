@@ -81,8 +81,10 @@ def fetch_assignments(session: SkywardSession) -> list[Assignment]:
     """
     page = session.page(ASSIGNMENTS_PATH)
     students = parse_students(page)
-    _set_date_range(session, page, "AllYear")
     try:
+        # Inside the try: if this fails after Skyward saved the preference (a
+        # timeout, say), it still gets put back.
+        _set_date_range(session, page, "AllYear")
         page = session.page(ASSIGNMENTS_PATH)
         found: dict[int, Assignment] = {}
         for browse_name, status in ASSIGNMENT_GRIDS.items():
@@ -91,18 +93,13 @@ def fetch_assignments(session: SkywardSession) -> list[Assignment]:
                     found.setdefault(a.id, a)
         return list(found.values())
     finally:
-        _set_date_range(session, page, "Current")
+        try:
+            _set_date_range(session, page, "Current")
+        except Exception:
+            # Logged rather than raised: it would replace the fetch's result,
+            # or hide why the fetch failed. The next sync puts it back.
+            log.exception("Couldn't set the assignments filter back to Current Term")
 
 
 def _set_date_range(session: SkywardSession, page: Page, mode: str) -> None:
-    r = session.client.post(
-        DATE_RANGE_PATH,
-        params={"w": page.w, "p": page.p},
-        data={"DateRangeMode": mode},
-        headers={
-            "X-CSRF-Token": page.csrf,
-            "X-Requested-With": "XMLHttpRequest",
-            "Referer": page.url,
-        },
-    )
-    r.raise_for_status()
+    session.post(page, DATE_RANGE_PATH, {"DateRangeMode": mode})
