@@ -7,10 +7,12 @@ screenshot unless the only student is the demo one.
 
     uv run python scripts/seed_demo.py
     npm --prefix frontend run build          # the app serves frontend/dist
-    uv run --group tools python scripts/screenshots.py --check    # fails on sideways scroll or console errors
+    uv run --group tools python scripts/screenshots.py --check    # sideways scroll, console errors, axe
     uv run --group tools python scripts/screenshots.py --readme   # writes docs/screenshots/*.png
 
---check writes its screenshots to recordings/screens/ for review.
+--check also runs axe-core (frontend/node_modules, from `npm ci`) on every page
+at every width in both themes and fails on any WCAG 2.2 A/AA violation. It
+writes its screenshots to recordings/screens/ for review.
 """
 
 import json
@@ -30,7 +32,7 @@ PORT = 8087
 BASE = f"http://127.0.0.1:{PORT}"
 DEMO_STUDENT = "STUDENT, DEMO"
 
-PHONES = [(360, 740), (390, 844)]
+PHONES = [(320, 640), (360, 740), (390, 844)]
 
 # Regions that scroll sideways inside the page (a wide table in its own scroller
 # doesn't make the page overflow, but it's just as bad on a phone). Scrollable
@@ -45,6 +47,16 @@ INNER_SCROLL_JS = """
   .toString().split(' ').find(c => c.startsWith('Mui')) || el.tagName)
 """
 LARGER = [(768, 1024), (1024, 768), (1280, 900)]
+
+AXE = ROOT / "frontend" / "node_modules" / "axe-core" / "axe.min.js"
+# WCAG 2.0-2.2, levels A and AA: what the UI promises (DEVELOPING.md, "Accessibility").
+AXE_RUN_JS = """
+async () => (await axe.run(document, {
+  runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'],
+})).violations.map(v => ({
+  id: v.id, impact: v.impact, count: v.nodes.length, target: v.nodes[0].target.join(' '),
+}))
+"""
 
 
 def get_json(path: str):
@@ -101,6 +113,7 @@ def routes() -> list[str]:
     return [
         "overview",
         "assignments/missing",
+        "assignments/missing/year",
         "assignments/upcoming",
         "assignments/past",
         "assignments/all",
@@ -122,7 +135,17 @@ def open_page(browser, width, height, scheme, route, scale=1):
     return page, errors
 
 
+def a11y_problems(page, label: str) -> list[str]:
+    page.add_script_tag(path=str(AXE))
+    return [
+        f"{label}: a11y {v['id']} ({v['impact']}): {v['count']} nodes, e.g. {v['target']}"
+        for v in page.evaluate(AXE_RUN_JS)
+    ]
+
+
 def check(browser) -> int:
+    if not AXE.exists():
+        sys.exit(f"{AXE.relative_to(ROOT)} is missing: run npm ci in frontend/")
     out = ROOT / "recordings" / "screens"
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
@@ -139,6 +162,7 @@ def check(browser) -> int:
                 if inner:
                     problems.append(f"{label}: a region scrolls sideways ({', '.join(inner)})")
                 problems += [f"{label}: console error: {e}" for e in errors]
+                problems += a11y_problems(page, label)
                 name = f"{width}x{height}-{scheme}-{route.replace('/', '-')}.png"
                 page.screenshot(path=out / name, full_page=True)
                 page.close()
@@ -159,7 +183,7 @@ def check(browser) -> int:
     if problems:
         print("Problems:\n  " + "\n  ".join(problems))
         return 1
-    print("check: no sideways scrolling or console errors at any width")
+    print("check: no sideways scrolling, console errors or axe violations at any width")
     return 0
 
 

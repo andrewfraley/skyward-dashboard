@@ -79,15 +79,28 @@ tablet and desktop widths against made-up demo data, never your own:
 ```sh
 uv run python scripts/seed_demo.py                 # recordings/demo/skyward.db: an invented student
 npm --prefix frontend run build
-uv run --group tools python scripts/screenshots.py --check    # 360, 390, 768, 1024 and 1280 px wide
+uv run --group tools python scripts/screenshots.py --check    # 320, 360, 390, 768, 1024 and 1280 px wide
 uv run --group tools python scripts/screenshots.py --readme   # docs/screenshots/*.png
 ```
 
 `screenshots.py` serves only the demo database, with the Skyward login blanked so it can't
 contact Skyward, and refuses to run if any student in it isn't the demo one. `--check` fails if a
-page, or anything on it, scrolls sideways, or on console errors, and leaves screenshots in
-`recordings/screens/` to look over. `--readme` writes the README's images with their metadata
-stripped. The PII check can't read images, so look at every one before committing it.
+page, or anything on it, scrolls sideways, on console errors, or on any accessibility violation
+axe-core finds, and leaves screenshots in `recordings/screens/` to look over. `--readme` writes
+the README's images with their metadata stripped. The PII check can't read images, so look at
+every one before committing it.
+
+### Accessibility
+
+The UI aims at WCAG 2.2 AA in both light and dark themes. `--check` runs
+[axe-core](https://github.com/dequelabs/axe-core) (a dev dependency in `frontend/`, needs
+`npm ci`; never part of the UI bundle or the image) on every page at every width, in both
+themes. axe can't judge everything, so for a UI change also check by eye and by keyboard:
+
+- the selected option in a toggle group, tab bar or filter is plain without relying on colour;
+- borders and icons that carry meaning have 3:1 contrast against their background;
+- every control is reachable with Tab, in a sensible order, with the focus outline visible;
+- touch targets are at least 24×24 px, and nothing is lost at 320 px wide or 200% text size.
 
 ## Privacy
 
