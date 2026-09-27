@@ -65,7 +65,7 @@ export const gradeColor = (grade) => BAND_COLOR[gradeBand(grade)] || 'default'
 /** A course is "struggling" at C- or below in its current grading period. */
 export function isStruggling(grade) {
   const band = gradeBand(grade)
-  return band === 'D' || band === 'F' || grade === 'C-'
+  return band === 'D' || band === 'F' || (grade || '').trim().toUpperCase() === 'C-'
 }
 
 export function formatPercent(percent) {

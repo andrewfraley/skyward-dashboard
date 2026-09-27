@@ -24,9 +24,11 @@ import {
 
 // `shortLabel` replaces `label` on phones, where three tiles share one row.
 function StatTile({ icon, label, shortLabel, value, detail, tone, href }) {
+  // A tile with nowhere to go isn't a link.
+  const Area = href ? CardActionArea : Box
   return (
     <Card sx={{ height: '100%' }}>
-      <CardActionArea href={href} sx={{ height: '100%' }}>
+      <Area {...(href ? { href } : {})} sx={{ height: '100%' }}>
         <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Stack
             direction="row"
@@ -69,7 +71,7 @@ function StatTile({ icon, label, shortLabel, value, detail, tone, href }) {
             {detail}
           </Typography>
         </CardContent>
-      </CardActionArea>
+      </Area>
     </Card>
   )
 }
@@ -127,7 +129,7 @@ export default function OverviewPage({ courses, assignments, period, loading }) 
     .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
   const dueThisWeek = upcoming.filter((a) => {
     const days = daysUntil(a.due_date)
-    return days != null && days >= 0 && days <= 7
+    return days != null && days >= 0 && days < 7 // today and the six days after
   })
   const struggling = graded.filter((c) => isStruggling(currentTerm(c.grades)?.grade))
 
@@ -172,7 +174,8 @@ export default function OverviewPage({ courses, assignments, period, loading }) 
                 : 'Every class above C-'
             }
             tone="error"
-            href="#overview"
+            // One class: its page. Several: they're all in the list below.
+            href={struggling.length === 1 ? `#course/${struggling[0].student_section_id}` : null}
           />
         </Grid>
       </Grid>

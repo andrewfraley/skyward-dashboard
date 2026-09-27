@@ -89,6 +89,8 @@ export default function AssignmentsPage({
       </ToggleButtonGroup>
       <Card>
         <AssignmentTable
+          // A fresh list per filter, so "Show more" doesn't carry over.
+          key={`${filter}-${allYear}`}
           rows={rows}
           loading={loading}
           showStatus={filter === 'all'}
