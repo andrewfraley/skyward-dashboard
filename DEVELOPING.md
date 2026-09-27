@@ -70,6 +70,25 @@ uv run python scripts/explore.py --menu PATH   # headless: logs in from .env, re
 Recordings go to `recordings/`, which is gitignored: they contain your session cookies and your
 student's data. Passwords are redacted before anything is written.
 
+## Checking the UI and taking screenshots
+
+The UI has a phone layout below 600px (MUI's `sm`: a bottom tab bar and a one-line header) and
+shows assignments as a list instead of a table below 900px (`md`). Check every change at phone,
+tablet and desktop widths against made-up demo data, never your own:
+
+```sh
+uv run python scripts/seed_demo.py                 # recordings/demo/skyward.db: an invented student
+npm --prefix frontend run build
+uv run --group tools python scripts/screenshots.py --check    # 360, 390, 768, 1024 and 1280 px wide
+uv run --group tools python scripts/screenshots.py --readme   # docs/screenshots/*.png
+```
+
+`screenshots.py` serves only the demo database, with the Skyward login blanked so it can't
+contact Skyward, and refuses to run if any student in it isn't the demo one. `--check` fails if a
+page, or anything on it, scrolls sideways, or on console errors, and leaves screenshots in
+`recordings/screens/` to look over. `--readme` writes the README's images with their metadata
+stripped. The PII check can't read images, so look at every one before committing it.
+
 ## Privacy
 
 This project handles children's school records, and the repository must never contain anything
