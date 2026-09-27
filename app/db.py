@@ -7,6 +7,7 @@ after diffing it against what was there to record what changed.
 
 import json
 import sqlite3
+from collections import Counter
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -148,6 +149,21 @@ class Database:
                 "SELECT * FROM sync_runs WHERE status = 'ok' ORDER BY id DESC LIMIT 1"
             ).fetchone()
             return dict(row) if row else None
+
+    def counts(self) -> dict[str, Counter]:
+        """Courses and assignments cached per student id."""
+        with self.connect() as db:
+            return {
+                table: Counter(
+                    {
+                        r[0]: r[1]
+                        for r in db.execute(
+                            f"SELECT student_id, COUNT(*) FROM {table} GROUP BY student_id"
+                        )
+                    }
+                )
+                for table in ("courses", "assignments")
+            }
 
     # -- writing a snapshot -------------------------------------------------
 
