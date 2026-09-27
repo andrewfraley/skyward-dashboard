@@ -8,6 +8,21 @@ Skyward has no parent API, so the app signs in with your Family Access login and
 pages your browser does. It updates on a schedule you choose and keeps what it fetches on your
 machine; the dashboard never waits on Skyward, and nothing is sent anywhere else.
 
+![The overview on a desktop browser: headline counts for missing work, work due soon and low grades, then a card per class with its current grade and percentage](docs/screenshots/desktop-overview.png)
+
+<p align="center">
+  <img src="docs/screenshots/phone-overview.png" width="300" alt="The overview on a phone, with the page tabs as a bar along the bottom">
+  &nbsp;
+  <img src="docs/screenshots/phone-assignments.png" width="300" alt="Missing assignments on a phone, one row each with the class, due date and score">
+</p>
+
+![A class page in dark mode: the grade for each grading period, the grade by category, the trend over time, and the class's assignments](docs/screenshots/desktop-class.png)
+
+*The screenshots use made-up example data.*
+
+It works on phones, and you can add it to your home screen: in Safari, **Share → Add to Home
+Screen**; in Chrome, **⋮ → Add to home screen** (or **Install app**).
+
 ## Install
 
 You need Docker. In a new folder, create `.env` with your district's Family Access address and
