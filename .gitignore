@@ -1,5 +1,9 @@
 .venv/
 .env
+.env.*
+!.env.example
+*.db
+*.db-journal
 data/
 recordings/
 frontend/node_modules/

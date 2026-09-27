@@ -80,7 +80,7 @@ tablet and desktop widths against made-up demo data, never your own:
 uv run python scripts/seed_demo.py                 # recordings/demo/skyward.db: an invented student
 npm --prefix frontend run build
 uv run --group tools python scripts/screenshots.py --check    # 320, 360, 390, 768, 1024 and 1280 px wide
-uv run --group tools python scripts/screenshots.py --readme   # docs/screenshots/*.png
+uv run --group tools python scripts/screenshots.py --readme   # docs/screenshots/*.png (needs ImageMagick's `magick`)
 ```
 
 `screenshots.py` serves only the demo database, with the Skyward login blanked so it can't

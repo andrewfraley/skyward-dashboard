@@ -54,6 +54,10 @@ Settings go in `.env` or `docker-compose.yml`:
 | `SKYWARD_SYNC_CRON` | `0 6-21/3 * * *` | When to update, in cron syntax: every 3 hours, 6am to 9pm |
 | `TZ` | `Etc/UTC` | Timezone for the schedule, e.g. `America/Chicago` |
 | `PUID`, `PGID` | `1000` | The user that owns `./data` |
+| `SKYWARD_LOG_LEVEL` | `INFO` | `DEBUG` for more detail in `docker compose logs`, `WARNING` for less |
+
+If your password has a `$`, `#`, space or quote in it, put it in single quotes:
+`SKYWARD_PASS='pa$$word'`. Docker Compose would otherwise read `$word` as a variable.
 
 Skyward allows one sign-in per account at a time, so an update may sign you out of Skyward in
 your browser. The app keeps its Skyward session in `data/` and reuses it, signing in again only

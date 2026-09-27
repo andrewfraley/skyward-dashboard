@@ -1,6 +1,9 @@
 .git
 .venv
 .env
+.env.*
+.pii-terms
+*.db
 data
 recordings
 frontend/node_modules
