@@ -38,6 +38,7 @@ function ScoreBar({ category }) {
       <LinearProgress
         variant="determinate"
         value={Math.min(100, category.percent ?? 0)}
+        aria-label={`${courseTitle(category.name)} score`}
         color={color === 'default' ? 'primary' : color}
         sx={{ flex: 1, height: 8, borderRadius: 4 }}
       />
@@ -165,7 +166,7 @@ export default function CoursePage({ studentSectionId, version }) {
     graded.find((g) => g.term === termName) || currentTerm(course?.grades) || graded[0]
 
   if (error) return <Alert severity="error">{error}</Alert>
-  if (!course) return <LinearProgress />
+  if (!course) return <LinearProgress aria-label="Loading" />
 
   // Missing work in the current grading period, as Skyward counts it, and the rest of the year.
   const period = gradingPeriod([course])

@@ -185,7 +185,7 @@ export default function App() {
             {error}
           </Alert>
         )}
-        <Suspense fallback={<LinearProgress />}>{page}</Suspense>
+        <Suspense fallback={<LinearProgress aria-label="Loading" />}>{page}</Suspense>
       </Container>
       <Footer />
       {phone && <BottomNav value={tab} onChange={go} missingCount={missingCount} />}
