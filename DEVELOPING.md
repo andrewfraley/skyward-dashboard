@@ -110,13 +110,18 @@ assignment titles.
 
 - **`scripts/check_pii.py`** takes its list of sensitive terms from local, gitignored sources:
   `.env`, `data/skyward.db`, and an optional `.pii-terms` file of anything else (one term per
-  line). It then scans every file git would commit, and prints only the kind of match, never the
-  term itself. It runs as the pre-commit hook and in `tests/test_no_pii.py`.
+  line). It then scans every file git would commit (file names and binary files included, and
+  each term in its HTML- and JSON-escaped forms too), and prints only the kind of match, never
+  the term itself. It runs as the pre-commit and commit-msg hooks and in `tests/test_no_pii.py`.
+  It says which sources it used; with no `data/skyward.db` it can't check names or titles.
 - **`tests/test_fixture_hygiene.py`** runs everywhere, CI included, and needs no private data. It
-  checks that fixtures carry only placeholder hashes, tokens, hosts and names.
+  checks that fixtures carry only placeholder hashes, tokens, hosts and names, and that every
+  assignment title, course and teacher the parsers read from them is a stand-in.
 - **Fixtures come only from `scripts/capture_fixtures.py`**, which replaces names, titles, ids,
   hashes and hosts with stand-ins, then deletes its output if `check_pii.py` flags anything.
-  Review the diff before committing. Never hand-copy a real response into `tests/`.
+  Review the diff before committing. Never hand-copy a real response into `tests/`. It signs in
+  with the app's saved cookies, so it needs no Playwright: `uv run python
+  scripts/capture_fixtures.py`.
 
 ## Supply chain
 

@@ -15,7 +15,6 @@ leave fixtures behind if anything is flagged. Review the diff before committing.
     uv run python scripts/capture_fixtures.py [--keep]   # --keep: leave flagged files to debug
 """
 
-import html
 import itertools
 import json
 import re
@@ -26,9 +25,8 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from explore import credentials  # noqa: E402  (scripts/ is on sys.path when run directly)
-
 from app.config import load_settings  # noqa: E402
+from check_pii import escapings  # noqa: E402  (scripts/ is on sys.path when run directly)
 from app.skyward import client  # noqa: E402
 from app.skyward.parse import (  # noqa: E402
     parse_assignments,
@@ -42,36 +40,50 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "tests" / "fixtures"
 FAKE_STUDENT_ID = "100001"
 FAKE_STUDENT_NAME = "STUDENT, DEMO"
+# Any further students on the account: STUDENT, DEMO B / 100002, and so on.
 FAKE_SCHOOL = "EXAMPLE MIDDLE SCHOOL"
 FAKE_HOST = "skyward.example.org"
 
 
 class Scrubber:
-    def __init__(self, base_url: str, student_id: str, student_name: str, schools: list[str]):
-        # Replaced longest first, so the full name goes before its parts. Every
-        # given name (first and any middle ones, together or alone) becomes DEMO.
-        last, _, given = student_name.partition(",")
-        self.words: dict[str, str] = {student_name: FAKE_STUDENT_NAME, last.strip(): "STUDENT"}
-        if given.strip():
-            self.words[given.strip()] = "DEMO"
-            for part in given.split():
-                self.words.setdefault(part, "DEMO")
+    def __init__(self, base_url: str, students: list[tuple[str, str]], schools: list[str]):
+        """`students`: (id, "LAST, GIVEN") for every student on the account."""
+        self.words: dict[str, str] = {}
+        self.numbers: dict[str, str] = {}
+        for i, (student_id, student_name) in enumerate(students):
+            suffix = "" if i == 0 else f" {chr(ord('A') + i)}"
+            self.numbers[student_id] = str(int(FAKE_STUDENT_ID) + i)
+            # Replaced longest first, so the full name goes before its parts.
+            # Every given name (first and any middle ones, together or alone)
+            # becomes DEMO.
+            last, _, given = student_name.partition(",")
+            self._add(student_name, FAKE_STUDENT_NAME + suffix)
+            self._add(last.strip(), "STUDENT")
+            if given.strip():
+                self._add(given.strip(), "DEMO" + suffix)
+                for part in given.split():
+                    self._add(part, "DEMO" + suffix)
         for school in schools:
-            self.words[school] = FAKE_SCHOOL
+            self._add(school, FAKE_SCHOOL)
         self.host = urlsplit(base_url).hostname or ""
-        self.numbers = {student_id: FAKE_STUDENT_ID}
         self._next_number = itertools.count(900001)
-        self.teachers: dict[str, str] = {}
+        self.teacher_names: dict[str, str] = {}  # real name -> TEACHER X
+        self.teachers: dict[str, str] = {}  # every escaping of each -> TEACHER X
+
+    def _add(self, real: str, fake: str) -> None:
+        for form in escapings(real):
+            self.words.setdefault(form, fake)
 
     def add_teacher(self, name: str) -> None:
-        if name and name not in self.teachers:
-            self.teachers[name] = f"TEACHER {chr(ord('A') + len(self.teachers))}"
+        if name and name not in self.teacher_names:
+            fake = f"TEACHER {chr(ord('A') + len(self.teacher_names))}"
+            self.teacher_names[name] = fake
+            for form in escapings(name):
+                self.teachers.setdefault(form, fake)
 
     def add_title(self, real: str, fake: str) -> None:
         """A course or assignment name, in every escaping it can appear in."""
-        for variant in {real, html.escape(real), html.escape(real, quote=False)}:
-            for form in (variant, json.dumps(variant)[1:-1]):
-                self.words.setdefault(form, fake)
+        self._add(real, fake)
 
     def _number(self, m: re.Match) -> str:
         n = m.group(0)
@@ -87,7 +99,7 @@ class Scrubber:
             pattern = rf"(?<!\w){re.escape(real)}(?!\w)"
             text = re.sub(pattern, replacements[real], text, flags=re.IGNORECASE)
         if self.host:
-            text = text.replace(self.host, FAKE_HOST)
+            text = re.sub(re.escape(self.host), FAKE_HOST, text, flags=re.IGNORECASE)
         text = re.sub(  # the signed-in parent's name in the header
             r'(<p class="utilitiesButtonMain__text--username">)[^<]*', r"\1PARENT", text
         )
@@ -106,13 +118,18 @@ class Scrubber:
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     saved: dict[str, str] = {}
-    base_url, user, password = credentials()
+    settings = load_settings()
+    if not settings.has_credentials:
+        sys.exit("SKYWARD_BASE_URL, SKYWARD_USER and SKYWARD_PASS must be set in .env")
+    base_url, user, password = settings.base_url, settings.username, settings.password
     # The app's saved cookies, so this isn't another new-device sign-in email.
-    with SkywardSession(base_url, user, password, cookie_file=load_settings().cookie_path) as s:
+    with SkywardSession(base_url, user, password, cookie_file=settings.cookie_path) as s:
         grades_page = s.page(client.GRADES_PATH)
         students = parse_students(grades_page)
         student = students[0]
-        scrub = Scrubber(base_url, str(student.id), student.name, [x.school for x in students])
+        scrub = Scrubber(
+            base_url, [(str(x.id), x.name) for x in students], [x.school for x in students]
+        )
 
         grid_id = next(
             k for k, v in grades_page.browses.items() if v.get("browseName") == "StudentGrades"
@@ -160,7 +177,7 @@ def main() -> None:
     for filename, content in saved.items():
         (OUT / filename).write_text(scrub(content), encoding="utf-8")
         print(f"wrote tests/fixtures/{filename}")
-    print(f"scrubbed {len(scrub.teachers)} teacher names, {len(scrub.numbers)} ids")
+    print(f"scrubbed {len(scrub.teacher_names)} teacher names, {len(scrub.numbers)} ids")
 
     check = subprocess.run([sys.executable, str(ROOT / "scripts" / "check_pii.py")], cwd=ROOT)
     if check.returncode and "--keep" not in sys.argv:
