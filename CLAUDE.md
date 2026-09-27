@@ -37,9 +37,11 @@ quote real names or grades in commit messages.
   `.env`, `data/skyward.db` and `.pii-terms`. It prints the kind of term, never the term itself.
   Run it after touching tests, fixtures or docs: `uv run python scripts/check_pii.py`.
 - `tests/test_no_pii.py` runs the same check under pytest.
-- `.githooks/pre-commit` runs it on staged files. Enable it per clone with
-  `git config core.hooksPath .githooks`. Never bypass it (`--no-verify`); if it fires, fix the
-  file.
+- `.githooks/pre-commit` runs it on staged files and `.githooks/commit-msg` on the commit
+  message. Enable them per clone with `git config core.hooksPath .githooks`. Never bypass them
+  (`--no-verify`); if one fires, fix the file or the message.
+- `tests/test_fixture_hygiene.py` needs no private data, so it's the check CI runs: every
+  title, course and teacher the parsers read from a fixture must be a stand-in.
 - Test fixtures come only from `scripts/capture_fixtures.py`, which scrubs names, titles, ids,
   hashes and hosts, then deletes its output if `check_pii.py` flags anything. Never hand-edit
   real responses into `tests/fixtures/`. When Skyward adds a new place for identifying data,
