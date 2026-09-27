@@ -37,8 +37,10 @@ Settings go in `.env` or `docker-compose.yml`:
 | `TZ` | `Etc/UTC` | Timezone for the schedule, e.g. `America/Chicago` |
 | `PUID`, `PGID` | `1000` | The user that owns `./data` |
 
-Skyward allows one sign-in per account at a time, so each update may sign you out of Skyward in
-your browser. Keep the schedule modest.
+Skyward allows one sign-in per account at a time, so an update may sign you out of Skyward in
+your browser. The app keeps its Skyward session in `data/` and reuses it, signing in again only
+when Skyward has ended it, and always as the same device, so you shouldn't get a "new sign-in"
+email for every update. Keep the schedule modest.
 
 The dashboard has no login of its own. Keep it on your home network, or put it behind a reverse
 proxy with authentication. See [SECURITY.md](SECURITY.md).

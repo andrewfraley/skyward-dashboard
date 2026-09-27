@@ -12,6 +12,7 @@ After each page it prints the page title, the links on it, and any buttons or
 tabs, so the next paths to visit can be picked from the output.
 """
 
+import http.cookiejar
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -23,6 +24,7 @@ from record_session import Recorder
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.config import load_settings  # noqa: E402
+from app.skyward.session import cookie_owner, load_cookies, save_cookies  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 START_PATH = "/Student/Gradebook/StudentAssignment/FamilyAccessAssignmentList"
@@ -76,9 +78,51 @@ def credentials() -> tuple[str, str, str]:
     return settings.base_url, settings.username, settings.password
 
 
+def use_saved_cookies(context, base: str, user: str) -> None:
+    """Start from the app's saved cookies, so a still-live session is reused and a
+    new sign-in comes from a known device rather than triggering Skyward's email."""
+    jar = http.cookiejar.CookieJar()
+    load_cookies(jar, load_settings().cookie_path, cookie_owner(base, user))
+    context.add_cookies(
+        [
+            {
+                "name": c.name,
+                "value": c.value,
+                "domain": c.domain,
+                "path": c.path,
+                "expires": c.expires if c.expires is not None else -1,
+                "secure": c.secure,
+                "httpOnly": c.has_nonstandard_attr("HttpOnly"),
+            }
+            for c in jar
+        ]
+    )
+
+
+def keep_cookies(context, base: str, user: str) -> None:
+    """Save the browser's Skyward cookies back for the app and the next run."""
+    host = base.split("://", 1)[-1].split("/", 1)[0]
+    jar = http.cookiejar.CookieJar()
+    for c in context.cookies():
+        if c["domain"].lstrip(".") != host:
+            continue
+        jar.set_cookie(
+            http.cookiejar.Cookie(
+                0, c["name"], c["value"], None, False, c["domain"], False,
+                c["domain"].startswith("."), c["path"], True, c["secure"],
+                None if c["expires"] == -1 else int(c["expires"]), c["expires"] == -1,
+                None, None, {"HttpOnly": None} if c["httpOnly"] else {},
+            )  # fmt: skip
+        )
+    save_cookies(jar, load_settings().cookie_path, cookie_owner(base, user))
+
+
 def login(page: Page, base: str, user: str, password: str, path: str = START_PATH) -> None:
-    """Sign in through the form and land on `path`."""
+    """Land on `path`, signing in through the form if the session isn't live."""
     page.goto(base + path)
+    page.wait_for_load_state("networkidle")
+    if "Signin" not in page.url:
+        return  # the saved session is still good
     page.fill("input[name=UserName]", user)
     page.fill("input[name=Password]", password)
     with page.expect_navigation():
@@ -104,6 +148,7 @@ def main() -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         context = browser.new_context(viewport={"width": 1400, "height": 900})
+        use_saved_cookies(context, base, user)
         context.on("response", recorder.on_response)
         page = context.new_page()
 
@@ -120,6 +165,7 @@ def main() -> None:
             describe(page)
 
         context.storage_state(path=out_dir / "storage_state.json")
+        keep_cookies(context, base, user)
         browser.close()
     recorder.close()
     print(f"\nSaved {recorder.count} requests to {out_dir}")

@@ -91,9 +91,14 @@ proxy targets it). The container still listens on 8080 internally.
 
 - The site root `/` resets the connection. Always request a deep path such as
   `/Student/Gradebook/StudentAssignment/FamilyAccessAssignmentList`.
-- One session per account: each sync (and each `explore.py` run) can sign the parent out of
-  Skyward in their browser, and invalidates saved `storage_state.json` cookies. Don't sync in
-  loops; reuse recordings in `recordings/` for parser work where possible.
+- One session per account: a sign-in can sign the parent out of Skyward in their browser, and
+  Skyward emails the parent about sign-ins from a new device. Cookies are kept in
+  `data/skyward-cookies.json` (`Settings.cookie_path`): the long-lived
+  `LoginHistoryIdentifier-Student` device cookie makes a re-sign-in look like the same device,
+  and a still-live session is reused with no sign-in at all. Everything that talks to Skyward
+  (`app/sync.py`, `scripts/explore.py`, `scripts/capture_fixtures.py`) must use that file.
+  Never create a throwaway session. Don't sync in loops; reuse `recordings/` for parser work.
+  No keep-alive either: holding a session open would fight the parent's own browser sign-ins.
 - The assignments page filter (Current Term / All Year) is a server-side user preference.
   `fetch_assignments` sets All Year and must always restore Current in a `finally`.
 - Grid requests need the per-page CSRF token (`sessionGuidHash`), window ids (`p`, `w`), and

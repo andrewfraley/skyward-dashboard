@@ -27,5 +27,7 @@ credentials in a report; describe the problem with made-up examples.
 
 - The dashboard has no login of its own. Keep it on your home network, or put it behind a
   reverse proxy with authentication. Don't expose port 8080 to the internet.
-- `.env` holds your Skyward password in plain text, and `data/` holds your child's grades. Keep
-  both readable only by you (`chmod 600 .env`).
+- `.env` holds your Skyward password in plain text, and `data/` holds your child's grades and a
+  signed-in Skyward session (`skyward-cookies.json`, written readable only by its owner). Keep
+  both private (`chmod 600 .env`); deleting `skyward-cookies.json` just makes the next update
+  sign in again.
