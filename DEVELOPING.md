@@ -143,6 +143,31 @@ When the PR merges, the `main` build sees a version with no `v<version>` tag. It
 as `latest`, `<version>` and `<major>.<minor>`, then tags the merge commit and creates the GitHub
 release from the notes file.
 
+**The `stable` branch is the last release, for a Home Assistant add-on.** The Supervisor reads an
+add-on's `config.yaml` straight from git, so if it read `main` it would offer a new version the
+moment a PR merged, minutes before that image reached Docker Hub. Once the image is pushed and
+the GitHub release created, the release job pushes the merge commit to `stable`.
+
+- It pushes with a deploy key, because the workflow's own token may not push a commit that
+  changes `.github/workflows/`. The private key is the `STABLE_DEPLOY_KEY` secret in the
+  `release` environment, which only `main` can use.
+- Two rulesets guard `stable`. "Only the release job moves stable" lets nothing but a deploy key
+  update it. "Protect stable", which nothing bypasses, refuses deletion, force pushes, unsigned
+  commits and commits without passing `test` and `image` checks.
+- `stable` is left out of branch builds, since a deploy-key push starts a workflow run.
+- If moving `stable` fails, re-run the job. It skips the existing release, and pushing the same
+  commit again does nothing.
+
+To rotate the key:
+
+```sh
+ssh-keygen -t ed25519 -N "" -C "skyward-dashboard release job: stable branch" -f stable
+gh repo deploy-key add stable.pub --allow-write --title "Release job: move stable"
+gh secret set STABLE_DEPLOY_KEY --env release < stable
+shred -u stable stable.pub
+gh repo deploy-key list    # then delete the old one: gh repo deploy-key delete <id>
+```
+
 Dependabot PRs can't bump the version, so they merge without releasing and ship with the next
 release. After merging a Dependabot *security* update, release soon rather than waiting.
 
@@ -174,6 +199,8 @@ gh api -X PUT repos/$repo/environments/release --input - <<'JSON'
 JSON
 gh api -X POST repos/$repo/environments/release/deployment-branch-policies -f name=main -f type=branch
 ```
+
+The `stable` deploy key, its secret and its two rulesets are described under *Releases* above.
 
 And a ruleset protecting `main`: no deletion or force pushes, signed commits, changes only
 through pull requests, and the `test` and `image` checks passing:

@@ -150,4 +150,7 @@ stays pinned. DEVELOPING.md's *Supply chain* section is the full list; the rules
   and how to upgrade. Not a commit log. They must pass the privacy rules like everything else.
 - Dependabot PRs merge without releasing. After a Dependabot *security* update merges, suggest a
   patch release.
+- `stable` is the last release, moved only by the release job with the `STABLE_DEPLOY_KEY`
+  deploy key (two rulesets refuse anything else). It's there for a future Home Assistant add-on,
+  which the Supervisor reads from git. Never push to it.
 
