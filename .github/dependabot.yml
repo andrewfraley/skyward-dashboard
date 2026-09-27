@@ -1,4 +1,7 @@
 # Everything is pinned (SHAs, hashes, digests), so nothing updates on its own.
+# The cooldown only works where the registry reports publish dates, so every
+# image comes from Docker Hub (scripts/check_base_images.sh enforces it) and
+# uv comes from PyPI (tools/uv/requirements.txt), not from ghcr.io.
 # Dependabot opens a PR for each update; read the lock diff before merging,
 # since a hash only proves you got the version you asked for, not that the
 # version is safe.
@@ -54,6 +57,18 @@ updates:
     groups:
       frontend:
         patterns: ["*"]
+
+  # uv for the image build and CI, hash-pinned. From PyPI rather than the
+  # ghcr.io image because PyPI has publish dates, so the cooldown works.
+  - package-ecosystem: pip
+    directory: /tools/uv
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # Only new digests for the same tag (a rebuilt python:3.12-slim with OS
   # fixes). Moving to a new Python or Node version is a deliberate change.

@@ -1,7 +1,9 @@
 # Every input is pinned: base images by digest as well as tag (a tag can be
 # re-pointed, a digest can't), Python packages by hash from uv.lock, npm
-# packages by integrity hash from package-lock.json. Dependabot proposes new
-# digests; see .github/dependabot.yml.
+# packages by integrity hash from package-lock.json, and uv itself by hash
+# from tools/uv/requirements.txt. Dependabot proposes updates, each only once
+# it's a week old; see .github/dependabot.yml. Base images come only from
+# Docker Hub, where that cooldown works (CI checks this).
 
 # ---- build the React UI ----------------------------------------------------
 # The output is static files, so build it natively even for an arm64 image
@@ -17,14 +19,13 @@ RUN npm run build
 
 # ---- pinned dependencies ---------------------------------------------------
 # uv.lock turned into a plain requirements file with hashes, so the runtime
-# image installs exactly what CI tested and doesn't need uv itself. uv runs on
-# the build machine, so take its binary for that platform: copied straight
-# from the image it would be the target's (arm64) and fail to execute.
-FROM --platform=$BUILDPLATFORM ghcr.io/astral-sh/uv:0.12.9@sha256:8b940d3a9d65bed080436972241af2e21c84b5e8c9193f7014ed71479ee795ff AS uv
-
+# image installs exactly what CI tested and doesn't need uv itself. uv comes
+# from PyPI, hash-checked and wheels only (see tools/uv/requirements.txt for
+# why not the uv image).
 FROM --platform=$BUILDPLATFORM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 AS lock
 
-COPY --from=uv /uv /bin/uv
+COPY tools/uv/requirements.txt /tmp/uv-requirements.txt
+RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r /tmp/uv-requirements.txt
 COPY pyproject.toml uv.lock ./
 RUN uv export --frozen --no-emit-project --no-dev -o /requirements.txt
 

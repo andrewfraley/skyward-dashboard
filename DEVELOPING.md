@@ -88,8 +88,15 @@ reaches every install. Every input is pinned, and nothing updates on its own:
 
 - **GitHub Actions** by full commit SHA with the version in a comment. The repository refuses
   unpinned actions.
-- **Base images** by digest (`python:3.12-slim@sha256:…`), and uv from its image by version and
-  digest.
+- **Base images** by digest (`python:3.12-slim@sha256:…`), and only from Docker Hub.
+  Dependabot's cooldown needs the registry to report when an image was published; ghcr.io and
+  others don't, so Dependabot proposes their new images immediately.
+  `scripts/check_base_images.sh` (run in CI) fails on any image that isn't digest-pinned or is
+  hosted elsewhere.
+- **uv**, which the image build and CI both use, comes from PyPI (where the cooldown works), hash-pinned in
+  `tools/uv/requirements.txt`. The Dockerfile installs it with `--require-hashes
+  --only-binary=:all:`, and CI's `setup-uv` reads its version from the same file. Dependabot
+  updates it; to change it by hand, follow the comment at the top of that file.
 - **Python** only from `uv.lock`, installed in the image with `--require-hashes` and
   `--only-binary=:all:`: every file is hash-checked and no package's build code runs. There is no
   `[build-system]`, since the app runs from source and building it would fetch a build backend

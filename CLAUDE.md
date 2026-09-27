@@ -115,15 +115,19 @@ proxy targets it). The container still listens on 8080 internally.
 Every published image reaches every install (`latest`, `pull_policy: always`), so every input
 stays pinned. DEVELOPING.md's *Supply chain* section is the full list; the rules:
 
-- GitHub Actions by full commit SHA with the version in a comment. Base images by digest. uv by
-  version and digest, in a `--platform=$BUILDPLATFORM` stage.
+- GitHub Actions by full commit SHA with the version in a comment. Base images by digest and
+  only from Docker Hub (`scripts/check_base_images.sh`, run in CI, enforces both): Dependabot's
+  cooldown needs publish dates, which ghcr.io doesn't provide. uv comes from PyPI, hash-pinned in
+  `tools/uv/requirements.txt`, the one uv pin for both the Dockerfile and CI.
 - Python only from `uv.lock`; the image installs with `--require-hashes --only-binary=:all:`.
   Never `pip install` by name in the Dockerfile or CI, and don't add a `[build-system]`.
 - npm only via `npm ci` from `package-lock.json`. Keep `frontend/.npmrc`'s `ignore-scripts`; if a
   new package needs an install script, don't add it.
 - Keep dependencies few. Justify any new one in its PR (what it does, why a few lines of code
   won't do); prefer packages already in the lock. Nothing that phones home.
-- Dependabot waits 7 days and skips majors. When reviewing its PR, read the lock diff. Major
+- Dependabot waits 7 days and skips majors. When reviewing its PR, read the lock diff. A PR
+  saying "Cooldown could not be applied" is a blocker: check the release date by hand, and fix
+  the source so the cooldown works rather than merging early. Major
   upgrades (React, MUI, Vite, a new Python) are their own PR with code changes. Don't loosen
   `.github/dependabot.yml`.
 
