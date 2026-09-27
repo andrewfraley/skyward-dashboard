@@ -5,6 +5,7 @@ local sync exists. These catch the shape of a leak everywhere: a real security
 hash or token, a real host, a person's name where only stand-ins belong.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -50,3 +51,30 @@ def test_people_are_stand_ins(text):
     assert parents <= {"PARENT"}
     names = set(re.findall(r'familyAccessStudentNameText">([^<]*)<', text))
     assert names <= {"STUDENT,", "DEMO", "More"}
+
+
+def _assignments():
+    from app.skyward.parse import parse_assignments
+    from app.skyward.session import Browse
+
+    for path in (Path(__file__).parent / "fixtures").glob("Student*AssignmentsFamilyAccess.json"):
+        d = json.loads(path.read_text(encoding="utf-8"))
+        yield from parse_assignments(Browse(d["html"], d["meta"]), 100001, "past")
+
+
+def test_parsed_assignments_carry_only_stand_ins():
+    # The same fields the app reads, however the JSON escapes them: a title the
+    # scrubber missed (an apostrophe written as &#39;, say) shows up here.
+    for a in _assignments():
+        assert re.fullmatch(r"ASSIGNMENT \d{3}", a.name), "an assignment title isn't a stand-in"
+        assert re.fullmatch(r"COURSE [A-Z]", a.course), "a course name isn't a stand-in"
+        assert re.fullmatch(r"TEACHER [A-Z]", a.teacher), "a teacher name isn't a stand-in"
+
+
+def test_parsed_courses_carry_only_stand_ins():
+    from app.skyward.parse import parse_grades
+    from app.skyward.session import Browse
+
+    d = json.loads((Path(__file__).parent / "fixtures" / "grades_browse.json").read_text())
+    for course, _ in parse_grades(Browse(d["html"], d["meta"]), 100001):
+        assert re.fullmatch(r"COURSE [A-Z]", course.name), "a course name isn't a stand-in"
