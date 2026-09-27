@@ -8,13 +8,14 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined'
 import RefreshIcon from '@mui/icons-material/Refresh'
 
 import * as api from './api.js'
-import { timeAgo } from './grades.js'
+import { timeAgo, timeAgoShort } from './grades.js'
 
 /**
  * "Updated 2 hours ago" plus a refresh button. Polls the status while a sync
  * runs and calls `onSynced` when one finishes, so the pages reload their data.
+ * `compact` (phones) shortens it to "2h ago", with a bigger touch target.
  */
-export default function SyncStatus({ onSynced }) {
+export default function SyncStatus({ onSynced, compact = false }) {
   const [status, setStatus] = useState(null)
   const [error, setError] = useState(null)
   const lastFinished = useRef(null)
@@ -68,13 +69,24 @@ export default function SyncStatus({ onSynced }) {
           <ErrorOutlineIcon color="error" fontSize="small" aria-label="Last sync failed" />
         </Tooltip>
       )}
-      <Tooltip title={next ? `Next automatic update: ${next}` : 'Automatic updates are off'}>
+      <Tooltip
+        title={
+          (compact && !error ? `Updated ${timeAgo(updated)}. ` : '') +
+          (next ? `Next automatic update: ${next}` : 'Automatic updates are off')
+        }
+      >
         <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
           {error
-            ? 'Server unreachable'
+            ? compact
+              ? 'Offline'
+              : 'Server unreachable'
             : status?.syncing
-              ? 'Updating from Skyward…'
-              : `Updated ${timeAgo(updated)}`}
+              ? compact
+                ? 'Updating…'
+                : 'Updating from Skyward…'
+              : compact
+                ? timeAgoShort(updated)
+                : `Updated ${timeAgo(updated)}`}
         </Typography>
       </Tooltip>
       {status?.syncing ? (
@@ -84,7 +96,12 @@ export default function SyncStatus({ onSynced }) {
       ) : (
         <Tooltip title="Update now">
           <span>
-            <IconButton onClick={refresh} disabled={!status?.schedule} aria-label="Update now">
+            <IconButton
+              onClick={refresh}
+              disabled={!status?.schedule}
+              aria-label="Update now"
+              size={compact ? 'large' : 'medium'}
+            >
               <RefreshIcon />
             </IconButton>
           </span>

@@ -14,6 +14,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
+import useMediaQuery from '@mui/material/useMediaQuery'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { LineChart } from '@mui/x-charts/LineChart'
 
@@ -22,9 +23,48 @@ import AssignmentTable from './AssignmentTable.jsx'
 import { GradeChip, GradeHero } from './GradeBadge.jsx'
 import { courseTitle, currentTerm, formatPercent, gradeColor, shortDate } from './grades.js'
 
-/** Category subtotals for one term, as bars inside a table so every value is labelled. */
+function ScoreBar({ category }) {
+  const color = gradeColor(category.grade)
+  return (
+    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+      <LinearProgress
+        variant="determinate"
+        value={Math.min(100, category.percent ?? 0)}
+        color={color === 'default' ? 'primary' : color}
+        sx={{ flex: 1, height: 8, borderRadius: 4 }}
+      />
+      <Typography variant="body2" sx={{ minWidth: 56, textAlign: 'right' }}>
+        {formatPercent(category.percent)}
+      </Typography>
+    </Stack>
+  )
+}
+
+/**
+ * Category subtotals for one term, as labelled bars: a table on wider screens,
+ * stacked blocks on phones (name and grade, the bar, then points).
+ */
 function CategoryBreakdown({ term }) {
+  const phone = useMediaQuery((theme) => theme.breakpoints.down('sm'), { noSsr: true })
   if (!term?.categories?.length) return null
+  if (phone) {
+    return (
+      <Stack spacing={2} aria-label={`${term.term} grade by category`} sx={{ mt: 1 }}>
+        {term.categories.map((c) => (
+          <Box key={c.name}>
+            <Stack direction="row" sx={{ alignItems: 'center', mb: 0.5 }}>
+              <Typography sx={{ flex: 1, fontWeight: 500 }}>{courseTitle(c.name)}</Typography>
+              <GradeChip grade={c.grade} />
+            </Stack>
+            <ScoreBar category={c} />
+            <Typography variant="caption" color="text.secondary">
+              {c.points_earned ?? '–'} / {c.points_possible ?? '–'} points
+            </Typography>
+          </Box>
+        ))}
+      </Stack>
+    )
+  }
   return (
     <Table size="small" aria-label={`${term.term} grade by category`}>
       <TableHead>
@@ -40,17 +80,7 @@ function CategoryBreakdown({ term }) {
           <TableRow key={c.name}>
             <TableCell>{courseTitle(c.name)}</TableCell>
             <TableCell>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(100, c.percent ?? 0)}
-                  color={gradeColor(c.grade) === 'default' ? 'primary' : gradeColor(c.grade)}
-                  sx={{ flex: 1, height: 8, borderRadius: 4 }}
-                />
-                <Typography variant="body2" sx={{ minWidth: 56, textAlign: 'right' }}>
-                  {formatPercent(c.percent)}
-                </Typography>
-              </Stack>
+              <ScoreBar category={c} />
             </TableCell>
             <TableCell align="right">
               {c.points_earned ?? '–'} / {c.points_possible ?? '–'}

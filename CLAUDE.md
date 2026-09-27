@@ -119,6 +119,13 @@ proxy targets it). The container still listens on 8080 internally.
   cache.
 - Grade colours use the fixed status palette (success/warning/error) and always sit beside the
   letter grade; colour never carries meaning alone.
+- Phone layout below `sm` (bottom tab bar, one-line header); assignment lists instead of the
+  DataGrid below `md`. Every UI change must pass `scripts/screenshots.py --check` (seed the demo
+  data first; DEVELOPING.md has the commands) and the screenshots in `recordings/screens/`
+  should be looked at, not just the exit code.
+- README screenshots come only from `scripts/screenshots.py --readme` on the seeded demo data,
+  **never from real data** or a real browser session. `check_pii.py` can't read images: look at
+  every image before committing it.
 
 ## Supply chain
 

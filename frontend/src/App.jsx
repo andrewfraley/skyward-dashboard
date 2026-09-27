@@ -10,9 +10,11 @@ import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
+import useMediaQuery from '@mui/material/useMediaQuery'
 
 import * as api from './api.js'
 import AssignmentsPage from './AssignmentsPage.jsx'
+import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav.jsx'
 import ChangesPage from './ChangesPage.jsx'
 import Footer from './Footer.jsx'
 import { firstName } from './grades.js'
@@ -80,7 +82,10 @@ export default function App() {
     window.location.hash = hash
   }
 
+  // Phones get a one-line header that scrolls away and the tabs as a bottom bar.
+  const phone = useMediaQuery((theme) => theme.breakpoints.down('sm'), { noSsr: true })
   const student = students.find((s) => s.id === studentId)
+  const missingCount = assignments.filter((a) => a.status === 'missing').length
   const tab = route.page === 'course' ? 'overview' : route.page
 
   let page
@@ -110,15 +115,23 @@ export default function App() {
 
   return (
     // A full-height column, so the footer sits at the bottom even on short pages.
-    <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
+    // On phones, room at the bottom for the tab bar and the home indicator.
+    <Box
+      sx={{
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        pb: phone ? `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom))` : 0,
+      }}
+    >
       <AppBar
-        position="sticky"
+        position={phone ? 'static' : 'sticky'}
         color="default"
         elevation={0}
         sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}
       >
-        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-          <Typography variant="h6" component="div" sx={{ fontWeight: 700 }}>
+        <Toolbar sx={{ gap: { xs: 1, sm: 2 }, flexWrap: phone ? 'nowrap' : 'wrap' }}>
+          <Typography variant="h6" component="div" noWrap sx={{ fontWeight: 700, minWidth: 0 }}>
             {student ? `${firstName(student.name)}'s grades` : 'Skyward Dashboard'}
           </Typography>
           {students.length > 1 && (
@@ -145,15 +158,17 @@ export default function App() {
             </Typography>
           )}
           <Box sx={{ flex: 1 }} />
-          <SyncStatus onSynced={onSynced} />
+          <SyncStatus onSynced={onSynced} compact={phone} />
         </Toolbar>
-        <Tabs value={tab} onChange={(_, t) => go(t)} sx={{ px: 1 }}>
-          <Tab value="overview" label="Overview" />
-          <Tab value="assignments" label="Assignments" />
-          <Tab value="changes" label="Changes" />
-        </Tabs>
+        {!phone && (
+          <Tabs value={tab} onChange={(_, t) => go(t)} sx={{ px: 1 }}>
+            <Tab value="overview" label="Overview" />
+            <Tab value="assignments" label="Assignments" />
+            <Tab value="changes" label="Changes" />
+          </Tabs>
+        )}
       </AppBar>
-      <Container maxWidth="lg" sx={{ mt: 3 }}>
+      <Container maxWidth="lg" sx={{ mt: { xs: 2, sm: 3 }, px: { xs: 1.5, sm: 3 } }}>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -162,6 +177,7 @@ export default function App() {
         <Suspense fallback={<LinearProgress />}>{page}</Suspense>
       </Container>
       <Footer />
+      {phone && <BottomNav value={tab} onChange={go} missingCount={missingCount} />}
     </Box>
   )
 }
