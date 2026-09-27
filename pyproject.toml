@@ -1,6 +1,6 @@
 [project]
 name = "skyward-dashboard"
-version = "0.3.1"
+version = "0.4.0"
 description = "A parent's dashboard for Skyward Qmlativ Family Access: grades, missing and upcoming assignments"
 license = "MIT"
 requires-python = ">=3.12"
