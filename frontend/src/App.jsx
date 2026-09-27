@@ -17,7 +17,7 @@ import AssignmentsPage from './AssignmentsPage.jsx'
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav.jsx'
 import ChangesPage from './ChangesPage.jsx'
 import Footer from './Footer.jsx'
-import { firstName } from './grades.js'
+import { firstName, gradingPeriod, inPeriod } from './grades.js'
 import OverviewPage from './OverviewPage.jsx'
 import SyncStatus from './SyncStatus.jsx'
 
@@ -26,11 +26,14 @@ const CoursePage = lazy(() => import('./CoursePage.jsx'))
 
 const TABS = ['overview', 'assignments', 'changes']
 
-/** '#assignments/missing' -> {page: 'assignments', arg: 'missing'}; '#course/123' too. */
+/**
+ * '#assignments/missing' -> {page: 'assignments', arg: 'missing', scope: null};
+ * '#assignments/missing/year' sets scope 'year'; '#course/123' too.
+ */
 function routeFromHash() {
-  const [page, arg] = window.location.hash.replace('#', '').split('/')
+  const [page, arg, scope] = window.location.hash.replace('#', '').split('/')
   if (page === 'course' && arg) return { page, arg }
-  return { page: TABS.includes(page) ? page : 'overview', arg: arg || null }
+  return { page: TABS.includes(page) ? page : 'overview', arg: arg || null, scope: scope || null }
 }
 
 /**
@@ -85,7 +88,11 @@ export default function App() {
   // Phones get a one-line header that scrolls away and the tabs as a bottom bar.
   const phone = useMediaQuery((theme) => theme.breakpoints.down('sm'), { noSsr: true })
   const student = students.find((s) => s.id === studentId)
-  const missingCount = assignments.filter((a) => a.status === 'missing').length
+  // Missing counts follow Skyward: only the current grading period.
+  const period = gradingPeriod(courses)
+  const missingCount = assignments.filter(
+    (a) => a.status === 'missing' && inPeriod(a, period),
+  ).length
   const tab = route.page === 'course' ? 'overview' : route.page
 
   let page
@@ -103,14 +110,18 @@ export default function App() {
       <AssignmentsPage
         assignments={assignments}
         loading={loading}
+        period={period}
         filter={route.arg || 'missing'}
-        onFilter={(f) => go(`assignments/${f}`)}
+        allYear={route.scope === 'year'}
+        onFilter={(f, allYear) => go(`assignments/${f}${allYear ? '/year' : ''}`)}
       />
     )
   } else if (route.page === 'changes') {
     page = studentId != null && <ChangesPage studentId={studentId} version={version} />
   } else {
-    page = <OverviewPage courses={courses} assignments={assignments} loading={loading} />
+    page = (
+      <OverviewPage courses={courses} assignments={assignments} period={period} loading={loading} />
+    )
   }
 
   return (

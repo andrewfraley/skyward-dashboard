@@ -13,7 +13,14 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 
 import AssignmentTable from './AssignmentTable.jsx'
 import { GradeChip, GradeHero } from './GradeBadge.jsx'
-import { courseTitle, currentTerm, daysUntil, isStruggling, semesterGrades } from './grades.js'
+import {
+  courseTitle,
+  currentTerm,
+  daysUntil,
+  inPeriod,
+  isStruggling,
+  semesterGrades,
+} from './grades.js'
 
 // `shortLabel` replaces `label` on phones, where three tiles share one row.
 function StatTile({ icon, label, shortLabel, value, detail, tone, href }) {
@@ -67,7 +74,7 @@ function StatTile({ icon, label, shortLabel, value, detail, tone, href }) {
   )
 }
 
-function CourseCard({ course }) {
+function CourseCard({ course, missingCount }) {
   const term = currentTerm(course.grades)
   const semesters = semesterGrades(course.grades)
   return (
@@ -88,12 +95,12 @@ function CourseCard({ course }) {
               {semesters.map((g) => (
                 <GradeChip key={g.term} label={g.term} grade={g.grade} />
               ))}
-              {course.missing_count > 0 && (
+              {missingCount > 0 && (
                 <Chip
                   size="small"
                   color="error"
                   icon={<AssignmentLateIcon />}
-                  label={`${course.missing_count} missing`}
+                  label={`${missingCount} missing`}
                 />
               )}
             </Stack>
@@ -105,9 +112,16 @@ function CourseCard({ course }) {
   )
 }
 
-export default function OverviewPage({ courses, assignments, loading }) {
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
+
+export default function OverviewPage({ courses, assignments, period, loading }) {
   const graded = courses.filter((c) => c.grades.some((g) => g.grade))
-  const missing = assignments.filter((a) => a.status === 'missing')
+  // Missing work in the current grading period, as Skyward counts it.
+  const allMissing = assignments.filter((a) => a.status === 'missing')
+  const missing = allMissing.filter((a) => inPeriod(a, period))
+  const earlier = allMissing.length - missing.length
+  const missingIn = (course) => missing.filter((a) => a.course === course.name).length
+  const missingClasses = new Set(missing.map((a) => a.course)).size
   const upcoming = assignments
     .filter((a) => a.status === 'upcoming')
     .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
@@ -126,11 +140,12 @@ export default function OverviewPage({ courses, assignments, loading }) {
             label="Missing assignments"
             shortLabel="Missing"
             value={missing.length}
-            detail={
-              missing.length
-                ? `across ${new Set(missing.map((a) => a.course)).size} classes`
-                : 'All caught up'
-            }
+            detail={[
+              missing.length ? `in ${plural(missingClasses, 'class', 'classes')}` : 'All caught up',
+              earlier > 0 && `${earlier}${missing.length ? ' more' : ''} earlier this year`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
             tone="error"
             href="#assignments/missing"
           />
@@ -169,7 +184,7 @@ export default function OverviewPage({ courses, assignments, loading }) {
         <Grid container spacing={2}>
           {graded.map((c) => (
             <Grid key={c.student_section_id} size={{ xs: 12, sm: 6, lg: 4 }}>
-              <CourseCard course={c} />
+              <CourseCard course={c} missingCount={missingIn(c)} />
             </Grid>
           ))}
           {!loading && graded.length === 0 && (
@@ -180,7 +195,11 @@ export default function OverviewPage({ courses, assignments, loading }) {
         </Grid>
       </Box>
 
-      <Section title="Missing assignments" href="#assignments/missing" count={missing.length}>
+      <Section
+        title={period ? `Missing in ${period.term}` : 'Missing assignments'}
+        href="#assignments/missing"
+        count={missing.length}
+      >
         <AssignmentTable rows={missing} loading={loading} showStatus={false} pageSize={10} />
       </Section>
 
