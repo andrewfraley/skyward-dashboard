@@ -57,12 +57,24 @@ export default function AssignmentsPage({
         fullWidth={phone}
         onChange={(_, value) => value && onFilter(value, allYear)}
         aria-label="Which assignments"
+        // With large text the four don't fit in a phone's width: wrap, don't overflow.
+        sx={{ flexWrap: 'wrap' }}
       >
         {FILTERS.map(([value, label]) => (
           <ToggleButton
             key={value}
             value={value}
-            sx={phone ? { flexDirection: 'column', lineHeight: 1.25, py: 0.75 } : undefined}
+            sx={
+              phone
+                ? {
+                    flexDirection: 'column',
+                    lineHeight: 1.25,
+                    py: 0.75,
+                    flex: '1 1 0',
+                    width: 'auto',
+                  }
+                : undefined
+            }
           >
             {phone ? (
               <>
