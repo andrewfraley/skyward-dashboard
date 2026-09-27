@@ -20,7 +20,7 @@ RUN npm run build
 # image installs exactly what CI tested and doesn't need uv itself. uv runs on
 # the build machine, so take its binary for that platform: copied straight
 # from the image it would be the target's (arm64) and fail to execute.
-FROM --platform=$BUILDPLATFORM ghcr.io/astral-sh/uv:0.12.9@sha256:8b940d3a9d65bed080436972241af2e21c84b5e8c9193f7014ed71479ee795ff AS uv
+FROM --platform=$BUILDPLATFORM ghcr.io/astral-sh/uv:0.12.19@sha256:04d046b13e60d6bcec73cbc5e1cad25d680dea90c8573340950a0ac2d1aef424 AS uv
 
 FROM --platform=$BUILDPLATFORM python:3.12-slim@sha256:2f17fc044b579bab302c2e8054d3a686e2cb9a83de48e70534b94cd8ebbe06a9 AS lock
 
