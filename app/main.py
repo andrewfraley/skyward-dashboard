@@ -8,12 +8,13 @@ import logging
 import os
 import tomllib
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -29,6 +30,10 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("skyward_dashboard")
 
 SYNC_JOB = "sync"
+
+# How soon after the last sync started another may be started by hand. Each
+# sync can sign the parent out of Skyward in their browser.
+MANUAL_SYNC_COOLDOWN = timedelta(minutes=5)
 
 # pyproject.toml is the one place the version is written. It sits beside app/
 # in both a checkout and the image, so the running code can't report another.
@@ -63,10 +68,21 @@ async def lifespan(app: FastAPI):
 
 
 def _scheduled_sync(syncer: Syncer) -> None:
+    if syncer.login_failed:
+        log.warning(
+            "Skipping scheduled sync: Skyward rejected the last sign-in (%s). Fix SKYWARD_USER / "
+            "SKYWARD_PASS and restart, or press Update now",
+            syncer.login_failed,
+        )
+        return
+    _sync(syncer)
+
+
+def _sync(syncer: Syncer) -> None:
     try:
         syncer.run()
     except SyncAlreadyRunning:
-        log.info("Skipping scheduled sync: one is already running")
+        log.info("Skipping sync: one is already running")
 
 
 app = FastAPI(title="Skyward Dashboard", version=VERSION, lifespan=lifespan)
@@ -91,11 +107,18 @@ def status(request: Request) -> dict:
         "last_success": db(request).last_success(),
         "next_run": job.next_run_time.isoformat() if job and job.next_run_time else None,
         "schedule": request.app.state.syncer.settings.sync_cron if job else None,
+        # Automatic syncs are paused after Skyward rejected the sign-in.
+        "paused": request.app.state.syncer.login_failed is not None,
     }
 
 
 @app.post("/api/sync", status_code=202)
 def start_sync(request: Request) -> dict:
+    # A custom header can't be sent cross-site without a CORS preflight, which
+    # this app never grants. Without it, any web page open on the network
+    # could start syncs, and each can sign the parent out of Skyward.
+    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+        raise HTTPException(403, "Send the header X-Requested-With: XMLHttpRequest")
     syncer: Syncer = request.app.state.syncer
     if not syncer.settings.has_credentials:
         raise HTTPException(
@@ -103,8 +126,28 @@ def start_sync(request: Request) -> dict:
         )
     if syncer.running:
         raise HTTPException(409, "A sync is already running")
-    request.app.state.scheduler.add_job(_scheduled_sync, args=[syncer])
+    wait = _cooldown_left(db(request))
+    if wait:
+        minutes = -(-int(wait.total_seconds()) // 60)
+        raise HTTPException(
+            429,
+            f"Updated moments ago; try again in {minutes} minute{'s' * (minutes != 1)}",
+            headers={"Retry-After": str(int(wait.total_seconds()) + 1)},
+        )
+    request.app.state.scheduler.add_job(_sync, args=[syncer])
     return {"started": True}
+
+
+def _cooldown_left(database: Database) -> timedelta | None:
+    last = next(iter(database.last_runs(1)), None)
+    if not last:
+        return None
+    left = (
+        datetime.fromisoformat(last["started_at"])
+        + MANUAL_SYNC_COOLDOWN
+        - datetime.now(timezone.utc)
+    )
+    return left if left > timedelta(0) else None
 
 
 @app.get("/api/students")
@@ -137,7 +180,9 @@ def course(request: Request, student_section_id: int) -> dict:
 
 
 @app.get("/api/changes")
-def changes(request: Request, student_id: int | None = None, limit: int = 100) -> list[dict]:
+def changes(
+    request: Request, student_id: int | None = None, limit: int = Query(100, ge=1)
+) -> list[dict]:
     return db(request).changes(student_id=student_id, limit=min(limit, 500))
 
 

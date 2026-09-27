@@ -74,8 +74,11 @@ are on the GitHub releases page.
 Everything is read-only over the local copy, except `POST /api/sync`.
 
 - `GET /api/ping`: liveness and the running version
-- `GET /api/status`: the last update, the next scheduled one, whether one is running
-- `POST /api/sync`: update now (409 if one is running)
+- `GET /api/status`: the last update, the next scheduled one, whether one is running, and
+  whether automatic updates are paused because Skyward rejected the sign-in
+- `POST /api/sync`: update now. It needs the header `X-Requested-With: XMLHttpRequest`, so a web
+  page on another site can't start one: `curl -X POST -H 'X-Requested-With: XMLHttpRequest'
+  http://localhost:8080/api/sync`. 409 if one is running, 429 within five minutes of the last.
 - `GET /api/students`
 - `GET /api/students/{id}/courses`: classes with every grading period's grade, percent and categories
 - `GET /api/students/{id}/assignments?status=missing|upcoming|past`
