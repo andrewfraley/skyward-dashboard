@@ -7,6 +7,8 @@ import {
   firstName,
   formatScore,
   gradeColor,
+  gradingPeriod,
+  inPeriod,
   isStruggling,
   timeAgo,
   timeAgoShort,
@@ -30,6 +32,43 @@ describe('currentTerm', () => {
   it('ignores semester grades and handles nothing graded', () => {
     expect(currentTerm([{ term: 'S1', grade: 'A' }])).toBeNull()
     expect(currentTerm([])).toBeNull()
+  })
+})
+
+describe('gradingPeriod', () => {
+  const courses = [{ grades }, { grades: [{ ...grades[1], grade: null }] }]
+  const ungraded = [{ grades: grades.map((g) => ({ ...g, grade: null })) }]
+
+  it('picks the period containing today, graded or not', () => {
+    expect(gradingPeriod(courses, '2026-09-27')).toEqual({
+      term: 'GP2',
+      start_date: '2026-09-21',
+      end_date: '2026-10-30',
+    })
+    expect(gradingPeriod(ungraded, '2026-09-01').term).toBe('GP1')
+  })
+  it('uses the latest started period between periods and after the last', () => {
+    expect(gradingPeriod(courses, '2026-09-19').term).toBe('GP1')
+    expect(gradingPeriod(courses, '2026-12-01').term).toBe('GP2')
+  })
+  it('is null before any period or without dates', () => {
+    expect(gradingPeriod(courses, '2026-07-01')).toBeNull()
+    expect(gradingPeriod([{ grades: [{ term: 'GP1', grade: 'A' }] }])).toBeNull()
+    expect(gradingPeriod([])).toBeNull()
+  })
+})
+
+describe('inPeriod', () => {
+  const gp2 = { term: 'GP2', start_date: '2026-09-21', end_date: '2026-10-30' }
+  it('includes the boundary days and excludes the rest', () => {
+    expect(inPeriod({ due_date: '2026-09-21' }, gp2)).toBe(true)
+    expect(inPeriod({ due_date: '2026-10-30' }, gp2)).toBe(true)
+    expect(inPeriod({ due_date: '2026-09-18' }, gp2)).toBe(false)
+    expect(inPeriod({ due_date: '2026-11-02' }, gp2)).toBe(false)
+  })
+  it('counts everything when it cannot tell', () => {
+    expect(inPeriod({ due_date: null }, gp2)).toBe(true)
+    expect(inPeriod({ due_date: '2026-08-14' }, null)).toBe(true)
   })
 })
 

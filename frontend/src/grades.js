@@ -21,6 +21,32 @@ export function currentTerm(grades, today = isoDay()) {
   return containing || graded[graded.length - 1] || null
 }
 
+/**
+ * The school's current grading period, as { term, start_date, end_date }, from
+ * the dated GP terms of every course: the one containing today, else the latest
+ * one already started (a weekend or break between periods). Null if no dates.
+ */
+export function gradingPeriod(courses, today = isoDay()) {
+  const periods = (courses || [])
+    .flatMap((c) => c.grades || [])
+    .filter((g) => isGradingPeriod(g.term) && g.start_date && g.end_date)
+  const containing = periods.find((g) => g.start_date <= today && today <= g.end_date)
+  const started = periods
+    .filter((g) => g.start_date <= today)
+    .sort((a, b) => b.start_date.localeCompare(a.start_date))[0]
+  const found = containing || started
+  return found ? { term: found.term, start_date: found.start_date, end_date: found.end_date } : null
+}
+
+/**
+ * Whether an assignment is due in `period`. With no period, or no due date, we
+ * can't tell, so it counts.
+ */
+export function inPeriod(assignment, period) {
+  const due = assignment.due_date
+  return !period || !due || (period.start_date <= due && due <= period.end_date)
+}
+
 /** Semester/final grades (S1, S2, ...) that have a value. */
 export const semesterGrades = (grades) =>
   (grades || []).filter((g) => g.grade && /^S\d+$/.test(g.term))
