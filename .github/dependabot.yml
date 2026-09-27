@@ -81,3 +81,15 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  # The BuildKit and QEMU images CI builds with (tools/buildkit/Dockerfile,
+  # read by the workflow, never built). New releases of the same major only.
+  - package-ecosystem: docker
+    directory: /tools/buildkit
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
