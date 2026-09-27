@@ -44,6 +44,8 @@ function routeFromHash() {
 export default function App({ themePreference, onThemeChange }) {
   const [route, setRoute] = useState(routeFromHash)
   const [students, setStudents] = useState([])
+  // The student picked in the menu; null until then, meaning the first one.
+  const [requestedId, setRequestedId] = useState(null)
   const [studentId, setStudentId] = useState(null)
   const [courses, setCourses] = useState([])
   const [assignments, setAssignments] = useState([])
@@ -58,28 +60,42 @@ export default function App({ themePreference, onThemeChange }) {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  const load = useCallback(async () => {
-    try {
-      const list = await api.getStudents()
-      setStudents(list)
-      const id = list.some((s) => s.id === studentId) ? studentId : (list[0]?.id ?? null)
-      setStudentId(id)
-      if (id != null) {
-        const [c, a] = await Promise.all([api.getCourses(id), api.getAssignments(id)])
+  // Reloads when another student is picked or a sync finishes. A reply that
+  // arrives after a newer load started is dropped, so a slow one can't put the
+  // previous student's grades under this one's name.
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const list = await api.getStudents()
+        const id = list.some((s) => s.id === requestedId) ? requestedId : (list[0]?.id ?? null)
+        const [c, a] =
+          id == null ? [[], []] : await Promise.all([api.getCourses(id), api.getAssignments(id)])
+        if (cancelled) return
+        setStudents(list)
+        setStudentId(id)
         setCourses(c)
         setAssignments(a)
+        setError(null)
+      } catch (e) {
+        if (!cancelled) setError(e.message)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setError(null)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
     }
-  }, [studentId])
-
-  useEffect(() => {
     load()
-  }, [load, version])
+    return () => {
+      cancelled = true
+    }
+  }, [requestedId, version])
+
+  const pickStudent = (id) => {
+    setRequestedId(id)
+    setStudentId(id)
+    setCourses([])
+    setAssignments([])
+    setLoading(true)
+  }
 
   const onSynced = useCallback(() => setVersion((v) => v + 1), [])
   const go = (hash) => {
@@ -150,7 +166,7 @@ export default function App({ themePreference, onThemeChange }) {
             <Select
               size="small"
               value={studentId ?? ''}
-              onChange={(e) => setStudentId(e.target.value)}
+              onChange={(e) => pickStudent(e.target.value)}
               aria-label="Student"
             >
               {students.map((s) => (
@@ -175,7 +191,13 @@ export default function App({ themePreference, onThemeChange }) {
         </Toolbar>
         {!phone && (
           <Tabs value={tab} onChange={(_, t) => go(t)} sx={{ px: 1 }}>
-            <Tab value="overview" label="Overview" />
+            {/* A course page shows Overview as selected, and Tabs doesn't call
+                onChange for the selected tab, so going back needs its own click. */}
+            <Tab
+              value="overview"
+              label="Overview"
+              onClick={() => route.page === 'course' && go('overview')}
+            />
             <Tab value="assignments" label="Assignments" />
             <Tab value="changes" label="Changes" />
           </Tabs>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import LinearProgress from '@mui/material/LinearProgress'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import Stack from '@mui/material/Stack'
@@ -24,7 +25,8 @@ export default function AssignmentList({
 }) {
   const [shown, setShown] = useState(pageSize)
 
-  if (!loading && rows.length === 0) {
+  if (loading && rows.length === 0) return <LinearProgress aria-label="Loading assignments" />
+  if (rows.length === 0) {
     return (
       <Typography color="text.secondary" sx={{ px: 2, py: 2 }}>
         Nothing here

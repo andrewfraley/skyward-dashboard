@@ -82,6 +82,7 @@ describe('grades', () => {
   it('flags C- and below', () => {
     expect(['C-', 'D+', 'F'].map(isStruggling)).toEqual([true, true, true])
     expect(['C', 'B-'].map(isStruggling)).toEqual([false, false])
+    expect(['c-', ' C- ', null].map(isStruggling)).toEqual([true, true, false])
   })
 })
 

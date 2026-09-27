@@ -53,7 +53,8 @@ export default function BottomNav({ value, onChange, missingCount }) {
               badgeContent={missingCount}
               color="error"
               max={99}
-              slotProps={{ badge: { 'aria-label': `${missingCount} missing` } }}
+              // Hidden at 0, so nothing to announce then.
+              slotProps={missingCount ? { badge: { 'aria-label': `${missingCount} missing` } } : {}}
             >
               <AssignmentIcon />
             </Badge>

@@ -29,6 +29,7 @@ import {
   gradeColor,
   gradingPeriod,
   inPeriod,
+  isoDay,
   shortDate,
 } from './grades.js'
 
@@ -121,7 +122,8 @@ function GradeTrend({ history, term }) {
   }
   const first = points[0]
   const last = points[points.length - 1]
-  const when = (p) => shortDate(p.recorded_at.slice(0, 10))
+  // recorded_at is UTC; the day it names must be the local one, as on the chart.
+  const when = (p) => shortDate(isoDay(new Date(p.recorded_at)))
   return (
     <>
       {/* The chart's gist in words, for anyone who can't see it. */}
