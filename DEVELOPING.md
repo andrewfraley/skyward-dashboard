@@ -130,6 +130,9 @@ reaches every install. Every input is pinned, and nothing updates on its own:
   others don't, so Dependabot proposes their new images immediately.
   `scripts/check_base_images.sh` (run in CI) fails on any image that isn't digest-pinned or is
   hosted elsewhere.
+- **BuildKit and QEMU**, which build and push the published image in CI, by digest in
+  `tools/buildkit/Dockerfile`. That file is never built: CI reads the two images from it, and
+  it's there so Dependabot updates them with the same cooldown as the base images.
 - **uv**, which the image build and CI both use, comes from PyPI (where the cooldown works), hash-pinned in
   `tools/uv/requirements.txt`. The Dockerfile installs it with `--require-hashes
   --only-binary=:all:`, and CI's `setup-uv` reads its version from the same file. Dependabot
@@ -159,12 +162,14 @@ deliberately, `uv lock --upgrade`, run the tests, and commit the lock.
 
 | Push | Tags |
 |---|---|
-| `main`, releasing a new version (below) | `latest`, `1.2.3`, `1.2`, `main`, `sha-<commit>` |
-| `main`, no new version (e.g. a Dependabot bump) | `main`, `sha-<commit>` |
-| any other branch, e.g. `new-feature` | `new-feature`, `sha-<commit>` |
+| `main`, releasing a new version (below) | `latest`, `1.2.3`, `1.2`, `branch-main`, `sha-<commit>` |
+| `main`, no new version (e.g. a Dependabot bump) | `branch-main`, `sha-<commit>` |
+| any other branch, e.g. `new-feature` | `branch-new-feature`, `sha-<commit>` |
 
 `latest` is always the newest release. Nothing else moves it, so work in progress, or a merge that
-doesn't release, never reaches anyone.
+doesn't release, never reaches anyone. Branch tags carry the `branch-` prefix so that a branch
+named like a release (`latest`, `0.5`) can't replace one. `main`'s builds run one at a time, so
+two merges close together can't both release the same version.
 
 **Changes reach `main` only through pull requests, and a person merges them.**
 
@@ -174,7 +179,8 @@ doesn't release, never reaches anyone.
    `npm --prefix frontend install --package-lock-only` so both lock files follow. CI fails if the
    versions differ or `uv.lock` is stale.
 2. Add release notes as `docs/releases/<version>.md`, written for people running the app. CI
-   fails on a PR whose version has no tag and no notes file.
+   fails on a PR whose version has no tag and no notes file, and on one whose version is older
+   than the latest release.
 
 When the PR merges, the `main` build sees a version with no `v<version>` tag. It pushes the image
 as `latest`, `<version>` and `<major>.<minor>`, then tags the merge commit and creates the GitHub

@@ -20,9 +20,12 @@ on:
 # A push to a PR branch starts two runs for the same commit (push and
 # pull_request). Both building at once and writing the same build cache can
 # stall the build, so the second waits for the first and then finds the cache
-# fresh. Different commits still build in parallel.
+# fresh. Different commits still build in parallel, except on main: there a
+# run may release, so main's runs go one at a time. Otherwise two merges close
+# together would both see the version untagged and both push `latest`. A
+# queued main run checks for the tag only once the one before it has finished.
 concurrency:
-  group: build-${{ github.event.pull_request.head.sha || github.sha }}
+  group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || format('build-{0}', github.event.pull_request.head.sha || github.sha) }}
   cancel-in-progress: false
 
 # Every action is pinned to a full commit SHA, with its version in a comment.
@@ -52,13 +55,28 @@ jobs:
             echo "::error::pyproject.toml says $version but frontend/package.json says $ui. Bump both."
             exit 1
           fi
+          # --exit-code gives 2 when there's no such tag. Anything else is an
+          # error (network, auth), which must not be mistaken for "unreleased":
+          # that would republish `latest` and move stable.
           release=false
-          if ! git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+          rc=0
+          git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null || rc=$?
+          if [ "$rc" = 2 ]; then
             release=true
             if [ ! -f "docs/releases/$version.md" ]; then
               echo "::error::$version has no tag yet, so merging this to main releases it. Add its release notes as docs/releases/$version.md."
               exit 1
             fi
+            # A release must be newer than every earlier one, or `latest`
+            # would move backwards for everyone.
+            newest=$(git ls-remote --tags --refs origin 'refs/tags/v*' | sed 's|.*refs/tags/v||' | sort -V | tail -n 1)
+            if [ -n "$newest" ] && [ "$(printf '%s\n%s\n' "$newest" "$version" | sort -V | tail -n 1)" != "$version" ]; then
+              echo "::error::$version is older than the latest release, $newest. Bump from the latest tag."
+              exit 1
+            fi
+          elif [ "$rc" != 0 ]; then
+            echo "::error::Couldn't list the repository's tags (git ls-remote exited $rc)"
+            exit 1
           fi
           {
             echo "version=$version"
@@ -69,9 +87,11 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      # Every image in the Dockerfile must be digest-pinned and from Docker Hub,
-      # where Dependabot's cooldown works.
+      # Every image in the Dockerfile, and the BuildKit and QEMU images CI
+      # builds with, must be digest-pinned and from Docker Hub, where
+      # Dependabot's cooldown works.
       - run: scripts/check_base_images.sh
+      - run: scripts/check_base_images.sh tools/buildkit/Dockerfile
 
       # The same versions the image installs, from uv.lock. setup-uv verifies
       # the uv download's checksum. The uv version is the one the Dockerfile
@@ -123,8 +143,27 @@ jobs:
       - if: github.event_name != 'pull_request' && env.PUSH != 'true'
         run: echo "::warning::Not publishing to Docker Hub — set the DOCKERHUB_USERNAME variable and DOCKERHUB_TOKEN secret."
 
+      # BuildKit (which builds and pushes the image) and binfmt (QEMU for the
+      # arm64 half) would otherwise be pulled by moving tags. Their digests are
+      # pinned in tools/buildkit/Dockerfile, which Dependabot keeps current.
+      - id: tools
+        name: Read the pinned BuildKit and binfmt images
+        run: |
+          from() { sed -nE "s|^FROM[[:space:]]+($1:[^[:space:]]+).*|\\1|p" tools/buildkit/Dockerfile; }
+          buildkit=$(from moby/buildkit)
+          binfmt=$(from tonistiigi/binfmt)
+          if [ -z "$buildkit" ] || [ -z "$binfmt" ]; then
+            echo "::error::tools/buildkit/Dockerfile must pin moby/buildkit and tonistiigi/binfmt"
+            exit 1
+          fi
+          echo "buildkit=$buildkit" >> "$GITHUB_OUTPUT"
+          echo "binfmt=$binfmt" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          image: ${{ steps.tools.outputs.binfmt }}
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: image=${{ steps.tools.outputs.buildkit }}
 
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         if: env.PUSH == 'true'
@@ -138,13 +177,15 @@ jobs:
           images: ${{ env.IMAGE != '/skyward-dashboard' && env.IMAGE || 'skyward-dashboard' }}
           # `latest` is the newest release, nothing else: it moves only when a
           # merge to main releases a new version (with 1.2.3 and 1.2 alongside).
-          # Any other push, main included, gets its branch name (slashes become
-          # dashes) and its commit sha, so a merge without a release, like a
-          # Dependabot bump, reaches no one running `latest`.
+          # Any other push, main included, gets `branch-` plus its branch name
+          # (slashes become dashes) and its commit sha, so a merge without a
+          # release, like a Dependabot bump, reaches no one running `latest`.
+          # The prefix keeps a branch called `latest` or `0.5` from replacing
+          # a release tag.
           flavor: latest=false
           tags: |
             type=raw,value=latest,enable=${{ env.RELEASE }}
-            type=ref,event=branch
+            type=ref,event=branch,prefix=branch-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
