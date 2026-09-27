@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from explore import credentials  # noqa: E402  (scripts/ is on sys.path when run directly)
 
+from app.config import load_settings  # noqa: E402
 from app.skyward import client  # noqa: E402
 from app.skyward.parse import (  # noqa: E402
     parse_assignments,
@@ -103,7 +104,8 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     saved: dict[str, str] = {}
     base_url, user, password = credentials()
-    with SkywardSession(base_url, user, password) as s:
+    # The app's saved cookies, so this isn't another new-device sign-in email.
+    with SkywardSession(base_url, user, password, cookie_file=load_settings().cookie_path) as s:
         grades_page = s.page(client.GRADES_PATH)
         students = parse_students(grades_page)
         student = students[0]

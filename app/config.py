@@ -36,6 +36,11 @@ class Settings:
         return self.data_dir / "skyward.db"
 
     @property
+    def cookie_path(self) -> Path:
+        """Skyward cookies kept between syncs, so each sync isn't a new-device sign-in."""
+        return self.data_dir / "skyward-cookies.json"
+
+    @property
     def has_credentials(self) -> bool:
         return bool(self.base_url and self.username and self.password)
 

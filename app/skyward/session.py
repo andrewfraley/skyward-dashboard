@@ -11,16 +11,31 @@ makes:
    POST /Student/{routeModule}/{routeObject}/GetBrowse built from that config.
 
 Note that the site root (/) resets the connection, so never request it.
+
+Cookies can be kept between runs in a file (see `cookie_file`). Skyward sets a
+long-lived LoginHistoryIdentifier cookie at sign-in that identifies the device;
+throwing it away makes every sign-in look like a new device, which is what
+sends the parent a "new sign-in" email. Keeping the session cookie too means a
+run soon after the last one doesn't sign in at all.
 """
 
+import hashlib
+import http.cookiejar
 import json
+import logging
+import os
 import re
+import tempfile
+import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
 from selectolax.parser import HTMLParser
+
+log = logging.getLogger(__name__)
 
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36"
 
@@ -63,20 +78,52 @@ class Browse:
 
 
 class SkywardSession:
-    def __init__(self, base_url: str, username: str, password: str, timeout: float = 30):
+    """A signed-in Family Access session.
+
+    `cookie_file`, when given, keeps cookies between runs: loaded here (if it
+    was saved for the same site and username), saved after signing in and on
+    close. It holds a live session, so it belongs in the data directory with
+    owner-only permissions, never in the repository.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        username: str,
+        password: str,
+        timeout: float = 30,
+        cookie_file: Path | None = None,
+        transport: httpx.BaseTransport | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self._username = username
         self._password = password
+        self.cookie_file = Path(cookie_file) if cookie_file else None
         self.client = httpx.Client(
             base_url=self.base_url,
             headers={"User-Agent": USER_AGENT},
             follow_redirects=True,
             timeout=timeout,
+            transport=transport,
         )
         self.logged_in = False
+        self.sign_ins = 0  # how many times this session had to sign in
+        if self.cookie_file:
+            load_cookies(self.client.cookies.jar, self.cookie_file, self._owner)
+
+    @property
+    def _owner(self) -> str:
+        return cookie_owner(self.base_url, self._username)
+
+    def save_cookies(self) -> None:
+        if self.cookie_file:
+            save_cookies(self.client.cookies.jar, self.cookie_file, self._owner)
 
     def close(self) -> None:
-        self.client.close()
+        try:
+            self.save_cookies()
+        finally:
+            self.client.close()
 
     def __enter__(self):
         return self
@@ -117,6 +164,8 @@ class SkywardSession:
         if "/Session/Signin" in str(r.url):
             raise LoginError("Still on the sign-in page after authenticating")
         self.logged_in = True
+        self.sign_ins += 1
+        self.save_cookies()
         return r
 
     # -- grids --------------------------------------------------------------
@@ -207,6 +256,85 @@ class SkywardSession:
         )
         r.raise_for_status()
         return parse_page(str(r.url), r.text, csrf=page.csrf)
+
+
+# -- cookie persistence -------------------------------------------------------
+
+_COOKIE_FORMAT = 1
+
+
+def cookie_owner(base_url: str, username: str) -> str:
+    """Ties a cookie file to one site and account, without storing the username."""
+    return hashlib.sha256(f"{base_url.rstrip('/')}\n{username}".encode()).hexdigest()
+
+
+def save_cookies(jar: http.cookiejar.CookieJar, path: Path, owner: str) -> None:
+    """Write the jar as JSON, atomically and readable by the owner only."""
+    cookies = [
+        {
+            "name": c.name,
+            "value": c.value,
+            "domain": c.domain,
+            "path": c.path,
+            "expires": c.expires,
+            "secure": c.secure,
+            "httponly": c.has_nonstandard_attr("HttpOnly"),
+        }
+        for c in jar
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w") as f:
+            json.dump({"format": _COOKIE_FORMAT, "owner": owner, "cookies": cookies}, f)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
+def load_cookies(jar: http.cookiejar.CookieJar, path: Path, owner: str) -> int:
+    """Add the file's unexpired cookies to the jar; return how many. A file saved
+    for another site or account, or one that can't be read, is ignored."""
+    try:
+        data = json.loads(path.read_text())
+    except FileNotFoundError:
+        return 0
+    except (OSError, ValueError):
+        log.warning("Ignoring unreadable cookie file %s", path)
+        return 0
+    if data.get("format") != _COOKIE_FORMAT or data.get("owner") != owner:
+        log.info("Cookie file %s is for another site or account; starting fresh", path)
+        return 0
+    now = time.time()
+    loaded = 0
+    for c in data.get("cookies", []):
+        if c.get("expires") is not None and c["expires"] <= now:
+            continue
+        domain = c["domain"]
+        jar.set_cookie(
+            http.cookiejar.Cookie(
+                version=0,
+                name=c["name"],
+                value=c["value"],
+                port=None,
+                port_specified=False,
+                domain=domain,
+                domain_specified=domain.startswith("."),
+                domain_initial_dot=domain.startswith("."),
+                path=c["path"],
+                path_specified=True,
+                secure=c["secure"],
+                expires=c.get("expires"),
+                discard=c.get("expires") is None,
+                comment=None,
+                comment_url=None,
+                rest={"HttpOnly": None} if c.get("httponly") else {},
+            )
+        )
+        loaded += 1
+    return loaded
 
 
 # -- parsing helpers ---------------------------------------------------------

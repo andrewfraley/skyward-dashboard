@@ -52,6 +52,11 @@ Python is formatted with Black and `frontend/` with Prettier, both at 100 column
 - **Assignments:** the page's Current Term / All Year filter is a saved preference. The sync sets
   All Year and always puts Current back.
 - **Site root:** `/` resets the connection, so the client never requests it.
+- **Cookies persist** in `data/skyward-cookies.json` (owner-only). Skyward sets a long-lived
+  device cookie at sign-in and emails the parent about sign-ins from new devices; keeping it
+  means a sync that has to sign in again looks like the same device, and keeping the session
+  cookie means a sync soon after the last one doesn't sign in at all. The sync log says which
+  happened. The dev scripts share the file, so studying the site doesn't flood the inbox either.
 
 If Skyward changes and a sync starts failing, the tools in `scripts/` help find what moved. They
 need Playwright, which isn't installed by default:

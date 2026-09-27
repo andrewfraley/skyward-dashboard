@@ -43,8 +43,11 @@ class Syncer:
         log.info("Sync %d started", run_id)
         try:
             s = self.settings
-            with SkywardSession(s.base_url, s.username, s.password) as session:
+            with SkywardSession(
+                s.base_url, s.username, s.password, cookie_file=s.cookie_path
+            ) as session:
                 snap = fetch_snapshot(session)
+                signed_in = session.sign_ins
             changes = self.db.save_snapshot(run_id, snap)
         except Exception as e:
             log.exception("Sync %d failed", run_id)
@@ -54,8 +57,9 @@ class Syncer:
             return self.db.last_runs(1)[0]
         self.db.finish_run(run_id, changes=changes)
         log.info(
-            "Sync %d ok: %d courses, %d assignments, %d changes",
+            "Sync %d ok: %d courses, %d assignments, %d changes (%s)",
             run_id, len(snap.courses), len(snap.assignments), changes,
+            "signed in" if signed_in else "reused the saved session",
         )  # fmt: skip
         return self.db.last_runs(1)[0]
 
