@@ -31,7 +31,18 @@ export default function BottomNav({ value, onChange, missingCount }) {
         showLabels
         value={value}
         onChange={(_, v) => onChange(v)}
-        sx={{ height: BOTTOM_NAV_HEIGHT }}
+        sx={{
+          height: BOTTOM_NAV_HEIGHT,
+          // With large text the labels would run into each other; the icon and
+          // the accessible name stay whole.
+          '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.5 },
+          '& .MuiBottomNavigationAction-label': {
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          },
+        }}
       >
         <BottomNavigationAction value="overview" label="Overview" icon={<DashboardIcon />} />
         <BottomNavigationAction

@@ -8,9 +8,12 @@ import App from './App.jsx'
 
 const PRIMARY = { light: '#1e5aa8', dark: '#6da7ec' }
 
-// Grade status colours. Fixed across light and dark, and always shown with the
-// letter grade beside them, so colour never carries the meaning alone.
-const STATUS = { success: '#0ca30c', warning: '#fab219', error: '#d03b3b' }
+// Grade status colours, always shown with the letter grade beside them, so colour
+// never carries the meaning alone. The same in both themes except the red, which
+// is also used for text ("Missing"): #d03b3b is only 3.2:1 on the dark surfaces,
+// so dark mode uses a lighter red that reaches WCAG AA's 4.5:1.
+const STATUS = { success: '#0ca30c', warning: '#fab219' }
+const ERROR = { light: '#d03b3b', dark: '#e86161' }
 
 function buildTheme(mode) {
   return createTheme({
@@ -19,7 +22,7 @@ function buildTheme(mode) {
       primary: { main: PRIMARY[mode] },
       success: { main: STATUS.success },
       warning: { main: STATUS.warning },
-      error: { main: STATUS.error },
+      error: { main: ERROR[mode] },
       background:
         mode === 'dark'
           ? { default: '#121211', paper: '#1a1a19' }
@@ -41,7 +44,34 @@ function buildTheme(mode) {
           },
         },
       },
+      // Selects (the table's rows-per-page, the student picker) aren't ButtonBase,
+      // so they need the same focus outline themselves.
+      MuiSelect: {
+        styleOverrides: {
+          select: {
+            '&:focus-visible': { outline: `2px solid ${PRIMARY[mode]}`, outlineOffset: 2 },
+          },
+        },
+      },
       MuiCard: { defaultProps: { variant: 'outlined' } },
+      // MUI's toggle buttons have a faint border and mark the selected one with a
+      // barely different grey, so they hardly read as buttons, least of all in
+      // dark mode. Borders at 3:1 or better (WCAG 1.4.11), and the selected one
+      // filled and bold, so it doesn't rest on colour alone.
+      MuiToggleButton: {
+        styleOverrides: {
+          root: ({ theme }) => ({
+            color: theme.palette.text.primary,
+            borderColor: theme.palette.grey[600],
+            '&.Mui-selected, &.Mui-selected:hover': {
+              color: theme.palette.primary.contrastText,
+              backgroundColor: theme.palette.primary.main,
+              borderColor: theme.palette.primary.main,
+              fontWeight: 700,
+            },
+          }),
+        },
+      },
     },
   })
 }

@@ -15,8 +15,8 @@ const FILTERS = [
 ]
 
 /**
- * Missing work defaults to the current grading period, as Skyward shows it;
- * `allYear` widens it to the whole year. The other filters are always all year.
+ * Every list defaults to the current grading period, as Skyward shows it;
+ * `allYear` widens them all to the whole year.
  */
 export default function AssignmentsPage({
   assignments,
@@ -26,11 +26,11 @@ export default function AssignmentsPage({
   allYear,
   onFilter,
 }) {
-  const scoped = (status) => status === 'missing' && period && !allYear
+  const scoped = period && !allYear
   const matching = (status) =>
-    status === 'all'
-      ? assignments
-      : assignments.filter((a) => a.status === status && (!scoped(status) || inPeriod(a, period)))
+    assignments.filter(
+      (a) => (status === 'all' || a.status === status) && (!scoped || inPeriod(a, period)),
+    )
   const rows = matching(filter)
   const count = (status) => matching(status).length
   // On phones the four filters share the width, each label over its count.
@@ -38,19 +38,43 @@ export default function AssignmentsPage({
 
   return (
     <Stack spacing={2}>
+      {period && (
+        <ToggleButtonGroup
+          value={allYear ? 'year' : 'period'}
+          exclusive
+          size="small"
+          onChange={(_, value) => value && onFilter(filter, value === 'year')}
+          aria-label="Date range"
+        >
+          <ToggleButton value="period">This grading period ({period.term})</ToggleButton>
+          <ToggleButton value="year">All year</ToggleButton>
+        </ToggleButtonGroup>
+      )}
       <ToggleButtonGroup
         value={filter}
         exclusive
         size="small"
         fullWidth={phone}
-        onChange={(_, value) => value && onFilter(value, value === 'missing' && allYear)}
+        onChange={(_, value) => value && onFilter(value, allYear)}
         aria-label="Which assignments"
+        // With large text the four don't fit in a phone's width: wrap, don't overflow.
+        sx={{ flexWrap: 'wrap' }}
       >
         {FILTERS.map(([value, label]) => (
           <ToggleButton
             key={value}
             value={value}
-            sx={phone ? { flexDirection: 'column', lineHeight: 1.25, py: 0.75 } : undefined}
+            sx={
+              phone
+                ? {
+                    flexDirection: 'column',
+                    lineHeight: 1.25,
+                    py: 0.75,
+                    flex: '1 1 0',
+                    width: 'auto',
+                  }
+                : undefined
+            }
           >
             {phone ? (
               <>
@@ -63,18 +87,6 @@ export default function AssignmentsPage({
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
-      {filter === 'missing' && period && (
-        <ToggleButtonGroup
-          value={allYear ? 'year' : 'period'}
-          exclusive
-          size="small"
-          onChange={(_, value) => value && onFilter('missing', value === 'year')}
-          aria-label="Which missing assignments"
-        >
-          <ToggleButton value="period">This grading period ({period.term})</ToggleButton>
-          <ToggleButton value="year">All year</ToggleButton>
-        </ToggleButtonGroup>
-      )}
       <Card>
         <AssignmentTable
           rows={rows}
