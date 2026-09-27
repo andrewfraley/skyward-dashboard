@@ -17,76 +17,126 @@ import { timeAgo, timeAgoShort } from './grades.js'
  */
 export default function SyncStatus({ onSynced, compact = false }) {
   const [status, setStatus] = useState(null)
-  const [error, setError] = useState(null)
-  const lastFinished = useRef(null)
+  const [offline, setOffline] = useState(false)
+  // Why "Update now" was refused (409, 429...), shown for a few seconds.
+  const [notice, setNotice] = useState(null)
+  // Set by "Update now": the sync is queued but may not be running yet, so
+  // show it as running and poll quickly until it has run.
+  const pending = useRef(null)
+  const lastFinished = useRef(undefined) // undefined: not polled yet
+  const restart = useRef(() => {})
   const [, tick] = useState(0)
 
   useEffect(() => {
     let timer
+    let cancelled = false
     const poll = async () => {
+      clearTimeout(timer)
+      let fast = false
       try {
         const s = await api.getStatus()
-        setStatus(s)
-        setError(null)
-        const finished = s.last_success?.finished_at
-        if (lastFinished.current && finished && finished !== lastFinished.current) onSynced()
-        lastFinished.current = finished || lastFinished.current
-        timer = setTimeout(poll, s.syncing ? 3000 : 60000)
-      } catch (e) {
-        setError(e.message)
-        timer = setTimeout(poll, 60000)
+        if (cancelled) return
+        const p = pending.current
+        if (p && (s.syncing || s.last_run?.id !== p.lastRunId || Date.now() > p.until)) {
+          pending.current = null
+        }
+        fast = s.syncing || pending.current != null
+        setStatus({ ...s, syncing: fast })
+        setOffline(false)
+        // Any change, including the very first sync on a fresh install
+        // (nothing -> something), means there's new data to load.
+        const finished = s.last_success?.finished_at ?? null
+        if (lastFinished.current !== undefined && finished !== lastFinished.current) onSynced()
+        lastFinished.current = finished
+      } catch {
+        if (cancelled) return
+        setOffline(true)
       }
+      clearTimeout(timer) // a poll restarted by "Update now" may have overlapped this one
+      timer = setTimeout(poll, fast ? 3000 : 60000)
     }
+    restart.current = poll
     poll()
     // Keep "x minutes ago" fresh between polls.
     const clock = setInterval(() => tick((n) => n + 1), 30000)
     return () => {
+      cancelled = true
       clearTimeout(timer)
       clearInterval(clock)
     }
   }, [onSynced])
 
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(null), 8000)
+    return () => clearTimeout(t)
+  }, [notice])
+
   const refresh = async () => {
+    setNotice(null)
     try {
       await api.startSync()
-      setStatus((s) => ({ ...s, syncing: true }))
-      // Pick up the running state and poll quickly until it ends.
-      const s = await api.getStatus()
-      setStatus(s)
     } catch (e) {
-      setError(e.message)
+      if (e.status == null) setOffline(true)
+      else setNotice(e.message)
+      return
     }
+    pending.current = { lastRunId: status?.last_run?.id, until: Date.now() + 20000 }
+    setStatus((s) => ({ ...s, syncing: true }))
+    restart.current()
   }
 
   const failed = status?.last_run?.status === 'error' ? status.last_run : null
   const updated = status?.last_success?.finished_at
   const next = status?.next_run ? new Date(status.next_run).toLocaleString() : null
+  const schedule = status?.paused
+    ? 'Automatic updates are paused because Skyward rejected the sign-in'
+    : next
+      ? `Next automatic update: ${next}`
+      : 'Automatic updates are off'
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       {failed && (
         <Tooltip title={`Last sync failed: ${failed.error || 'unknown error'}`}>
-          <ErrorOutlineIcon color="error" fontSize="small" aria-label="Last sync failed" />
+          {/* Focusable, so keyboard users can reach the reason too. */}
+          <Box component="span" tabIndex={0} sx={{ display: 'flex', borderRadius: 1 }}>
+            <ErrorOutlineIcon
+              color="error"
+              fontSize="small"
+              titleAccess={`Last sync failed: ${failed.error || 'unknown error'}`}
+            />
+          </Box>
         </Tooltip>
       )}
       <Tooltip
         title={
-          (compact && !error ? `Updated ${timeAgo(updated)}. ` : '') +
-          (next ? `Next automatic update: ${next}` : 'Automatic updates are off')
+          notice ||
+          (compact && !offline && updated ? `Updated ${timeAgo(updated)}. ` : '') + schedule
         }
       >
-        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-          {error
+        <Typography
+          variant="body2"
+          color={notice ? 'warning.main' : 'text.secondary'}
+          role="status"
+          tabIndex={0}
+          sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {offline
             ? compact
               ? 'Offline'
               : 'Server unreachable'
-            : status?.syncing
-              ? compact
-                ? 'Updating…'
-                : 'Updating from Skyward…'
-              : compact
-                ? timeAgoShort(updated)
-                : `Updated ${timeAgo(updated)}`}
+            : notice
+              ? notice
+              : status?.syncing
+                ? compact
+                  ? 'Updating…'
+                  : 'Updating from Skyward…'
+                : !updated
+                  ? 'Not updated yet'
+                  : compact
+                    ? timeAgoShort(updated)
+                    : `Updated ${timeAgo(updated)}`}
         </Typography>
       </Tooltip>
       {status?.syncing ? (
