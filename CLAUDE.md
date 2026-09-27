@@ -23,7 +23,9 @@ commit messages, PR text):
 
 Use made-up stand-ins instead: `STUDENT, DEMO` (shown as "Demo"), `TEACHER A`, `COURSE A`, `ASSIGNMENT 001`,
 `EXAMPLE MIDDLE SCHOOL`, `skyward.example.org`, student id `100001`. For a realistic course name
-in a test, invent one ("CONCERT CHOIR-II"), never copy one from the synced data.
+in a test, invent one ("CONCERT CHOIR-II"), never copy one from the synced data. People are
+always obvious stand-ins, never realistic invented names: a made-up "Jane Smith" in a screenshot
+or example reads as a real person.
 
 Real data lives only in gitignored places: `.env`, `data/`, `recordings/`, `.pii-terms`. Read
 from them freely when debugging, but don't copy their contents into tracked files, and don't

@@ -120,6 +120,8 @@ const KEEP_UPPER = new Set(['AP', 'IB', 'PE', 'ELL', 'ESL', 'STEM'])
 export function courseTitle(name) {
   const word = (w, i) => {
     const lower = w.toLowerCase()
+    // A lone letter is a label ("TEACHER A", "PART B"), not the article "a".
+    if (w.length === 1) return w
     if (i > 0 && SMALL_WORDS.has(lower)) return lower
     // Codes, numbers, roman numerals and two-letter abbreviations ("US") stay as they are.
     if (KEEP_UPPER.has(w) || /\d/.test(w) || /^[IVX]+$/.test(w) || w.length <= 2) return w

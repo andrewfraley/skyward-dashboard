@@ -80,6 +80,7 @@ describe('names', () => {
     expect(courseTitle('SEMI-CONDUCTORS 9-I')).toBe('Semi-Conductors 9-I')
     expect(courseTitle('CONCERT CHOIR-II')).toBe('Concert Choir-II')
     expect(courseTitle('US HISTORY')).toBe('US History')
+    expect(courseTitle('TEACHER A')).toBe('Teacher A')
     expect(courseTitle('HISTORY OF ART')).toBe('History of Art')
     expect(courseTitle('FORM ASSESSMENTS')).toBe('Form Assessments')
   })
