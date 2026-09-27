@@ -6,6 +6,7 @@ POST /api/sync) run app.sync.Syncer, which is what refreshes it.
 
 import logging
 import os
+import tomllib
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
@@ -28,6 +29,10 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("skyward_dashboard")
 
 SYNC_JOB = "sync"
+
+# pyproject.toml is the one place the version is written. It sits beside app/
+# in both a checkout and the image, so the running code can't report another.
+VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
 
 
 @asynccontextmanager
@@ -64,7 +69,7 @@ def _scheduled_sync(syncer: Syncer) -> None:
         log.info("Skipping scheduled sync: one is already running")
 
 
-app = FastAPI(title="Skyward Dashboard", lifespan=lifespan)
+app = FastAPI(title="Skyward Dashboard", version=VERSION, lifespan=lifespan)
 
 
 def db(request: Request) -> Database:
@@ -73,7 +78,8 @@ def db(request: Request) -> Database:
 
 @app.get("/api/ping")
 def ping() -> dict:
-    return {"ok": True}
+    """Liveness, for the container HEALTHCHECK, and the version the UI's footer shows."""
+    return {"ok": True, "version": VERSION}
 
 
 @app.get("/api/status")

@@ -24,6 +24,7 @@ async function request(path, options = {}) {
   return body
 }
 
+export const ping = () => request('api/ping')
 export const getStatus = () => request('api/status')
 export const startSync = () => request('api/sync', { method: 'POST' })
 

@@ -20,6 +20,17 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
+def test_ping_reports_the_pyproject_version(client):
+    import tomllib
+    from pathlib import Path
+
+    pyproject = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text())
+    assert client.get("/api/ping").json() == {
+        "ok": True,
+        "version": pyproject["project"]["version"],
+    }
+
+
 def test_status_without_credentials(client):
     body = client.get("/api/status").json()
     assert body["last_success"]["status"] == "ok"
