@@ -302,8 +302,13 @@ class Database:
         if course:
             sql += " AND course = ?"
             args.append(course)
-        # Upcoming soonest first; everything else most recent first.
-        sql += " ORDER BY due_date " + ("ASC" if status == "upcoming" else "DESC") + ", name"
+        # Upcoming soonest first; everything else most recent first. Undated
+        # ones last either way (SQLite would put them first when ascending).
+        sql += (
+            " ORDER BY due_date IS NULL, due_date "
+            + ("ASC" if status == "upcoming" else "DESC")
+            + ", name"
+        )
         with self.connect() as db:
             return [dict(r) for r in db.execute(sql, args)]
 

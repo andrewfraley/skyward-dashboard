@@ -126,7 +126,8 @@ export default function OverviewPage({ courses, assignments, period, loading }) 
   const missingClasses = new Set(missing.map((a) => a.course)).size
   const upcoming = assignments
     .filter((a) => a.status === 'upcoming')
-    .sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
+    // Soonest first; undated ones last, not first.
+    .sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))
   const dueThisWeek = upcoming.filter((a) => {
     const days = daysUntil(a.due_date)
     return days != null && days >= 0 && days < 7 // today and the six days after

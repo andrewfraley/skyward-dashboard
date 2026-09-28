@@ -44,8 +44,8 @@ VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["versi
 async def lifespan(app: FastAPI):
     settings = load_settings()
     db = Database(settings.db_path)
-    db.fail_stale_runs()
     syncer = Syncer(settings, db)
+    syncer.fail_stale_runs()
     scheduler = BackgroundScheduler(timezone=settings.timezone or None)
     app.state.db, app.state.syncer, app.state.scheduler = db, syncer, scheduler
 

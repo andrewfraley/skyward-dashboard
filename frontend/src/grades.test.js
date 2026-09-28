@@ -10,6 +10,10 @@ import {
   gradingPeriod,
   inPeriod,
   isStruggling,
+  daysUntil,
+  formatPercent,
+  gradeBand,
+  semesterGrades,
   timeAgo,
   timeAgoShort,
 } from './grades.js'
@@ -127,5 +131,51 @@ describe('names', () => {
   it('formats scores', () => {
     expect(formatScore({ score: 12.5, max_score: 25 })).toBe('12.5 / 25')
     expect(formatScore({ score: null, max_score: 10 })).toBe('– / 10')
+  })
+})
+
+describe('edge cases', () => {
+  it('reads grade bands however Skyward writes them', () => {
+    expect(['b+', ' A- ', 'F'].map(gradeBand)).toEqual(['B', 'A', 'F'])
+    expect(['P', 'I', '93', '', null].map(gradeBand)).toEqual([null, null, null, null, null])
+    expect(gradeColor('P')).toBe('default')
+  })
+
+  it('formats percents, including zero and none', () => {
+    expect(formatPercent(null)).toBe('')
+    expect(formatPercent(0)).toBe('0.0%')
+    expect(formatPercent(86.66)).toBe('86.7%')
+  })
+
+  it('scores zero and unscored work', () => {
+    expect(formatScore({ score: 0, max_score: 10 })).toBe('0 / 10')
+    expect(formatScore({ score: 7 })).toBe('7')
+    expect(formatScore({ score: null, max_score: 20 })).toBe('– / 20')
+    expect(formatScore({ score: null })).toBe('')
+  })
+
+  it('words days on either side of today', () => {
+    const today = '2026-09-27'
+    expect(dueLabel('2026-09-26', today)).toBe('Yesterday')
+    expect(dueLabel('2026-09-21', today)).toBe('6 days ago')
+    expect(dueLabel(null, today)).toBe('No due date')
+    expect(daysUntil('2027-01-01', today)).toBe(96) // across a year end
+    expect(daysUntil('2026-11-02', '2026-10-31')).toBe(2) // across a DST change
+  })
+
+  it('never says a future or unreadable time is in the past', () => {
+    const now = Date.parse('2026-09-27T12:00:00Z')
+    expect(timeAgo('2026-09-27T13:00:00Z', now)).toBe('just now')
+    expect(timeAgo(null, now)).toBe('never')
+  })
+
+  it('keeps only graded semester grades', () => {
+    const terms = [
+      { term: 'S1', grade: 'B' },
+      { term: 'S2', grade: null },
+      { term: 'GP1', grade: 'A' },
+    ]
+    expect(semesterGrades(terms)).toEqual([{ term: 'S1', grade: 'B' }])
+    expect(semesterGrades(null)).toEqual([])
   })
 })
