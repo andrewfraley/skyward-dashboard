@@ -102,3 +102,19 @@ def test_database_is_owner_only(tmp_path):
     path = tmp_path / "skyward.db"
     Database(path)
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_scores_and_new_assignments_are_logged(db):
+    save(db, snapshot(hw_status="past", hw_score=5))
+    new = Assignment(id=3, student_id=1, name="Essay", course="MATH", status="upcoming")
+    save(db, snapshot(hw_status="past", hw_score=8, extra=[new]))
+    kinds = {(c["kind"], c["subject"]): (c["old"], c["new"]) for c in db.changes()}
+    assert kinds[("scored", "Homework 1")] == ("5/10 A", "8/10 A")
+    assert kinds[("new_assignment", "Essay")] == (None, None)
+
+
+def test_undated_assignments_sort_last(db):
+    undated = Assignment(id=3, student_id=1, name="Whenever", course="MATH", status="upcoming")
+    save(db, snapshot(extra=[undated]))
+    assert [a["name"] for a in db.assignments(1, status="upcoming")] == ["Quiz 1", "Whenever"]
+    assert [a["name"] for a in db.assignments(1)][-1] == "Whenever"

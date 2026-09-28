@@ -17,7 +17,7 @@ import AssignmentsPage from './AssignmentsPage.jsx'
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav.jsx'
 import ChangesPage from './ChangesPage.jsx'
 import Footer from './Footer.jsx'
-import { firstName, gradingPeriod, inPeriod } from './grades.js'
+import { firstName, gradingPeriod, inPeriod, isoDay } from './grades.js'
 import OverviewPage from './OverviewPage.jsx'
 import SyncStatus from './SyncStatus.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
@@ -53,6 +53,20 @@ export default function App({ themePreference, onThemeChange }) {
   const [error, setError] = useState(null)
   // Bumped after each sync so pages that fetch their own data reload it.
   const [version, setVersion] = useState(0)
+  // Dates are worded relative to today ("Tomorrow", "Due soon", the current
+  // grading period), so render again when the day changes: a page left open
+  // overnight would otherwise keep yesterday's. Checked every minute and when
+  // the page comes back into view, since a sleeping device delays timers.
+  const [, setToday] = useState(isoDay)
+  useEffect(() => {
+    const check = () => setToday(isoDay())
+    const timer = setInterval(check, 60000)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [])
 
   useEffect(() => {
     const onHashChange = () => setRoute(routeFromHash())
