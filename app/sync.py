@@ -3,9 +3,12 @@
 uv run python -m app.sync            # one sync, then exit
 """
 
+import fcntl
 import logging
+import os
 import threading
 from collections import Counter
+from contextlib import contextmanager
 from urllib.parse import quote, quote_plus
 
 from app.config import Settings, load_settings
@@ -26,7 +29,13 @@ class IncompleteSnapshot(SkywardError):
 
 
 class Syncer:
-    """Runs one sync at a time, whether started by the schedule or the API."""
+    """Runs one sync at a time, whether started by the schedule or the API.
+
+    One at a time across processes too: `python -m app.sync` next to a running
+    server would otherwise sign in to the same Skyward account and write the
+    same cookie file at the same moment. A lock file in the data directory
+    covers that; the thread lock covers the server's own threads.
+    """
 
     def __init__(self, settings: Settings, db: Database):
         self.settings = settings
@@ -39,15 +48,46 @@ class Syncer:
 
     @property
     def running(self) -> bool:
-        return self._lock.locked()
+        if self._lock.locked():
+            return True
+        try:
+            with self._process_lock():
+                return False
+        except SyncAlreadyRunning:
+            return True  # another process is syncing
 
     def run(self) -> dict:
         if not self._lock.acquire(blocking=False):
             raise SyncAlreadyRunning()
         try:
-            return self._run()
+            with self._process_lock():
+                return self._run()
         finally:
             self._lock.release()
+
+    def fail_stale_runs(self) -> None:
+        """Mark runs a crash left 'running' as failed, unless one really is running
+        (in another process, which would still finish it)."""
+        try:
+            with self._process_lock():
+                self.db.fail_stale_runs()
+        except SyncAlreadyRunning:
+            pass
+
+    @contextmanager
+    def _process_lock(self):
+        """Hold data_dir/sync.lock, or raise SyncAlreadyRunning. The lock goes with
+        the process, so a crash never leaves it held."""
+        self.settings.data_dir.mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.settings.data_dir / "sync.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise SyncAlreadyRunning() from None
+            yield
+        finally:
+            os.close(fd)
 
     def _run(self) -> dict:
         run_id = self.db.start_run()
@@ -124,8 +164,12 @@ def main() -> None:
             "Set SKYWARD_BASE_URL, SKYWARD_USER and SKYWARD_PASS (in .env or the environment)"
         )
     db = Database(settings.db_path)
-    db.fail_stale_runs()
-    result = Syncer(settings, db).run()
+    syncer = Syncer(settings, db)
+    syncer.fail_stale_runs()
+    try:
+        result = syncer.run()
+    except SyncAlreadyRunning:
+        raise SystemExit("A sync is already running (the server's, probably)")
     print(result)
     if result["status"] != "ok":
         raise SystemExit(1)

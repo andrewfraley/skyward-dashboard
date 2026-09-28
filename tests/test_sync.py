@@ -116,3 +116,38 @@ def test_one_sync_at_a_time(syncer, monkeypatch):
     release.set()
     t.join(5)
     assert not syncer.running
+
+
+def test_one_sync_at_a_time_across_processes(syncer, monkeypatch):
+    # A second Syncer on the same data dir stands in for `python -m app.sync`
+    # run next to the server: its lock file is separate from the thread lock.
+    other = Syncer(syncer.settings, syncer.db)
+    started, release = threading.Event(), threading.Event()
+
+    def slow(session):
+        started.set()
+        release.wait(5)
+        return snapshot()
+
+    monkeypatch.setattr(sync, "fetch_snapshot", slow)
+    t = threading.Thread(target=syncer.run)
+    t.start()
+    started.wait(5)
+    try:
+        assert other.running
+        with pytest.raises(SyncAlreadyRunning):
+            other.run()
+        # Its run is live, not stale: another process starting up leaves it alone.
+        other.fail_stale_runs()
+        assert syncer.db.last_runs(1)[0]["status"] == "running"
+    finally:
+        release.set()
+        t.join(5)
+    assert not other.running
+    assert syncer.db.last_runs(1)[0]["status"] == "ok"
+
+
+def test_stale_runs_are_failed_when_nothing_is_syncing(syncer):
+    syncer.db.start_run()  # left 'running' by a crash
+    syncer.fail_stale_runs()
+    assert syncer.db.last_runs(1)[0]["status"] == "error"
