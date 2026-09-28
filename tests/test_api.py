@@ -148,3 +148,16 @@ def test_changes_limit_must_be_positive(client):
     assert client.get("/api/changes", params={"limit": -1}).status_code == 422
     assert client.get("/api/changes", params={"limit": 0}).status_code == 422
     assert client.get("/api/changes", params={"limit": 10_000}).status_code == 200
+
+
+def test_other_paths_serve_the_ui(client, tmp_path, monkeypatch):
+    # Client-side routes (a reload on #-less paths, say) get index.html.
+    import app.main as main
+
+    ui = tmp_path / "ui"
+    ui.mkdir()
+    (ui / "index.html").write_text("<html>the ui</html>")
+    monkeypatch.setattr(main, "_static_dir", ui)
+    r = client.get("/some/client/route")
+    assert r.status_code == 200 and "the ui" in r.text
+    assert client.get("/api/nope").headers["content-type"].startswith("application/json")
