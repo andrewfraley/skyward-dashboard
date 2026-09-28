@@ -63,8 +63,8 @@ def _assignments():
 
 
 def test_parsed_assignments_carry_only_stand_ins():
-    # The same fields the app reads, however the JSON escapes them: a title the
-    # scrubber missed (an apostrophe written as &#39;, say) shows up here.
+    # The same fields the app reads, however the JSON escapes them, so anything
+    # the scrubber missed shows up here.
     for a in _assignments():
         assert re.fullmatch(r"ASSIGNMENT \d{3}", a.name), "an assignment title isn't a stand-in"
         assert re.fullmatch(r"COURSE [A-Z]", a.course), "a course name isn't a stand-in"
