@@ -4,36 +4,39 @@
 # Everything is black on white. Status is never shown by an inverted box alone:
 # a struggling grade also gets a "!", and the header spells out any problem.
 
+# Sizes are chosen so every stem is a whole number of pixels: at 1 bit per pixel
+# a 2.5 px stem renders as a mix of 2 and 3, and letters look uneven. Measure
+# before changing a size (DEVELOPING.md, "E-paper display").
 font:
   - file: "gfonts://Inter@700"
-    id: font_title
-    size: 28
+    id: font_title # 4 px stems
+    size: 27
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_grade
+    id: font_grade # 5 px
     size: 34
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_heading
+    id: font_heading # 4 px
+    size: 27
+    bpp: 1
+  - file: "gfonts://Inter@600"
+    id: font_body # 3 px
     size: 24
     bpp: 1
   - file: "gfonts://Inter@500"
-    id: font_body
-    size: 22
-    bpp: 1
-  - file: "gfonts://Inter@500"
-    id: font_small
+    id: font_small # 2 px
     size: 18
     bpp: 1
   # White text on black loses its thin strokes to ink bleed on e-paper, so
-  # anything reversed out of black uses this heavier face.
-  - file: "gfonts://Inter@600"
-    id: font_reversed
+  # anything reversed out of black is bold.
+  - file: "gfonts://Inter@700"
+    id: font_reversed # 3 px
     size: 20
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_huge
-    size: 48
+    id: font_huge # 6 px
+    size: 44
     bpp: 1
 
 display:
@@ -91,7 +94,7 @@ display:
         return;
       }
       JsonObject s = students[id(student_index)];
-      const char *pages[] = {"Overview", "Missing", "Upcoming"};
+      const char *pages[] = {"Overview", "Missing", "Coming up"};
       int p = id(page);
 
       // Header: name and page on the left, freshness and battery on the right.
@@ -145,6 +148,15 @@ display:
       if (p == 0) {
         // Left: grades. Right: missing and upcoming, three each.
         const int COL = 425;
+        auto width_of = [&](const char *t) {
+          int x, y, w, h;
+          it.get_text_bounds(0, 0, t, id(font_grade), TextAlign::TOP_LEFT, &x, &y, &w, &h);
+          return w;
+        };
+        int LETTER_W = 0;
+        for (const char *l : {"A", "B", "C", "D", "F"}) LETTER_W = std::max(LETTER_W, width_of(l));
+        const int MOD_W = std::max(width_of("+"), width_of("-")) + 2, BANG_W = width_of("!") + 2, PAD = 6;
+        const int GRADE_X = COL - 112 - (LETTER_W + MOD_W + BANG_W + PAD);  // clear of the percent
         int y = top;
         JsonArray grades = s["grades"];
         int rows = std::min<int>(grades.size(), 9);
@@ -152,20 +164,19 @@ display:
         for (int i = 0; i < rows; i++) {
           JsonObject g = grades[i];
           bool low = g["struggling"] | false;
-          std::string letter = g["letter"] | "";
-          text(M, y + 8, id(font_body), ink, TextAlign::TOP_LEFT, fit(id(font_body), g["course"] | "", 250));
-          const int right = COL - 100;  // letters end here; the percent sits between
+          std::string grade = g["letter"] | "";
+          std::string letter = grade.substr(0, 1), modifier = grade.size() > 1 ? grade.substr(1) : "";
+          text(M, y + 8, id(font_body), ink, TextAlign::TOP_LEFT, fit(id(font_body), g["course"] | "", GRADE_X - 12 - M));
+          // Fixed slots, so letters and modifiers line up down the column: the
+          // letter centred in the width of the widest one, then +/-, then "!".
+          Color fg = ink;
           if (low) {  // inverted, and the "!" says the same thing without the box
-            int gx, gy, gw, gh, bx, by, bw, bh;
-            it.get_text_bounds(0, 0, letter.c_str(), id(font_grade), TextAlign::TOP_LEFT, &gx, &gy, &gw, &gh);
-            it.get_text_bounds(0, 0, "!", id(font_grade), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-            const int pad = 7, gap = 7, left = right - (gw + gap + bw + 2 * pad);  // ends where letters do
-            it.filled_rectangle(left, y, gw + gap + bw + 2 * pad, 42, ink);
-            text(left + pad, y + 3, id(font_grade), paper, TextAlign::TOP_LEFT, letter);
-            text(left + pad + gw + gap, y + 3, id(font_grade), paper, TextAlign::TOP_LEFT, "!");
-          } else {
-            text(right, y + 3, id(font_grade), ink, TextAlign::TOP_RIGHT, letter);
+            it.filled_rectangle(GRADE_X - PAD, y, LETTER_W + MOD_W + BANG_W + 2 * PAD, 42, ink);
+            fg = paper;
+            text(GRADE_X + LETTER_W + MOD_W, y + 3, id(font_grade), fg, TextAlign::TOP_LEFT, "!");
           }
+          text(GRADE_X + LETTER_W / 2, y + 3, id(font_grade), fg, TextAlign::TOP_CENTER, letter);
+          text(GRADE_X + LETTER_W, y + 3, id(font_grade), fg, TextAlign::TOP_LEFT, modifier);
           text(COL - 20, y + 8, id(font_body), ink, TextAlign::TOP_RIGHT, g["percent"] | "");
           y += step;
         }
