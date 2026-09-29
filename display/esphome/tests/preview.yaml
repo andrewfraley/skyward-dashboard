@@ -1,0 +1,94 @@
+# Renders the layout on this computer instead of the display, for fast iteration.
+# Run it with scripts/display_preview.py, which builds this, runs it against a
+# dashboard (the demo data by default) and turns the output into PNGs.
+#
+# It draws with the real layout lambda; only the display driver differs.
+
+substitutions:
+  dashboard_url: http://127.0.0.1:8087
+  out_dir: preview
+  retry_minutes: "30"
+  maintenance_minutes: "5"
+
+esphome:
+  name: skyward-display-preview
+  on_boot:
+    priority: -100
+    then:
+      - http_request.get:
+          url: ${dashboard_url}/api/display?v=1
+          capture_response: true
+          max_response_buffer_size: 64kB
+          on_response:
+            then:
+              - lambda: |-
+                  id(doc) = json::parse_json(body);
+                  const std::string out = "${out_dir}/";
+                  int n = id(doc)["students"].size();
+                  const char *pages[] = {"overview", "missing", "upcoming"};
+                  id(battery_percent) = 87;
+                  for (int s = 0; s < n; s++) {
+                    id(student_index) = s;
+                    for (int p = 0; p < 3; p++) {
+                      id(page) = p;
+                      id(epd).render(out + "student" + std::to_string(s) + "-" + pages[p] + ".pbm");
+                    }
+                  }
+                  id(student_index) = 0;
+                  id(page) = 0;
+                  id(battery_percent) = 12;
+                  id(epd).render(out + "low-battery.pbm");
+                  const char *screens[] = {"", "cant-reach", "battery-empty", "maintenance"};
+                  for (int i = 1; i <= 3; i++) {
+                    id(screen) = i;
+                    id(epd).render(out + std::string(screens[i]) + ".pbm");
+                  }
+                  exit(0);
+          on_error:
+            then:
+              - lambda: |-
+                  ESP_LOGE("preview", "Couldn't fetch ${dashboard_url}/api/display");
+                  exit(1);
+
+host:
+
+external_components:
+  - source:
+      type: local
+      path: ../tools/components
+
+logger:
+  level: INFO
+
+network:
+
+json:
+
+http_request:
+  verify_ssl: false
+
+display:
+  - platform: preview_display
+    id: epd
+    width: 800
+    height: 480
+
+packages:
+  layout: !include ../layouts/landscape-800x480.yaml
+
+# The globals the layout reads, as common/skyward.yaml defines them.
+globals:
+  - id: doc
+    type: JsonDocument
+  - id: page
+    type: int
+    initial_value: "0"
+  - id: student_index
+    type: int
+    initial_value: "0"
+  - id: screen
+    type: int
+    initial_value: "0"
+  - id: battery_percent
+    type: int
+    initial_value: "87"
