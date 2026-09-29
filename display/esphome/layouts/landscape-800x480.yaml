@@ -129,7 +129,8 @@ display:
       const char *err = root["sync_error"] | "";
       if (*err) status = err;
       else if (root["stale"] | false) status = std::string("Not updated since ") + (root["updated"] | "?");
-      else status = std::string("Updated ") + (root["updated"] | "");
+      else if (*(root["changed"] | "")) status = std::string("Last change ") + (root["changed"] | "");
+      else status = std::string("Updated ") + (root["updated"] | "");  // a dashboard before 0.8.2
       int batt = id(battery_percent);
       if (batt >= 0) status += batt < 15 ? "  |  Charge me " + std::to_string(batt) + "%" : "  |  " + std::to_string(batt) + "%";
       int right_start = dots_x + 3 * 18 + 12;

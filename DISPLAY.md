@@ -87,8 +87,9 @@ The pages, for each student:
 - **Missing**: all missing work this grading period.
 - **Coming up**: upcoming work, soonest first.
 
-The header says when the dashboard last updated from Skyward and the battery level. It says so
-if the last update failed, if Skyward rejected the sign-in, or if the data is over a day old.
+The header says when something on it last changed (not every update finds something new) and the
+battery level. It says so if the last update failed, if Skyward rejected the sign-in, or if the
+data is over a day old.
 
 Other screens you may see:
 
@@ -96,8 +97,8 @@ Other screens you may see:
   screen until then, and keeps trying every 30 minutes.
 - **Charge me** in the header: under 15%. It wakes half as often to stretch the charge.
 - **Battery empty**: under 5%. It stops using Wi-Fi and sleeps until you charge it.
-- **Maintenance mode**: awake for 5 minutes with its address on screen, for updates over Wi-Fi
-  and for logs (`esphome logs skyward-display.yaml`).
+- **Maintenance mode**: awake for 5 minutes with its address on screen and the LED on, for
+  updates over Wi-Fi and for logs (`esphome logs skyward-display.yaml`).
 
 To show one student only, for a display in a child's room, set `student: "0"` (or `"1"`, ...) in
 your file. The green button then does nothing.
@@ -158,6 +159,7 @@ or removed; a breaking change would be a new version, served alongside this one.
 | `hash` | changes only when something shown changes; compare it to skip a redraw |
 | `sleep_seconds` | until just after the next scheduled update, between 15 minutes and 12 hours |
 | `updated` | the date of the last successful update, such as `Mon Sep 28` |
+| `changed` | when the last update that changed something finished, such as `Mon Sep 28, 9:02 AM` (0.8.2 and later) |
 | `stale` | the last successful update is over a day old |
 | `sync_error` | a short message if the last update failed, else `null` |
 | `students[]` | `name` (first name), `grading_period`, `grades[]`, `missing`, `upcoming` |

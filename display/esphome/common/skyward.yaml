@@ -297,6 +297,7 @@ script:
   - id: maintenance
     then:
       - deep_sleep.prevent: deep_sleep_ctl
+      - output.turn_on: status_led # on for as long as it stays awake
       - lambda: id(screen) = 3;
       - wifi.enable:
       - wait_until:
