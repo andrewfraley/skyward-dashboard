@@ -5,7 +5,7 @@ shelf or a fridge, without opening a browser. The display fetches from your dash
 home network, redraws only when something changed, and sleeps in between, so a charge lasts a
 long time.
 
-![The display's overview: a header with the student's name, the page and when the dashboard last updated, grades down the left with a D flagged in a black box with an exclamation mark, and missing and upcoming work on the right](docs/screenshots/display-overview.png)
+![The display's overview: a white header with the student's name, the page and when the dashboard last updated, grades down the left with a D flagged in a black box with an exclamation mark, a large count of missing assignments in a black box on the right, and upcoming work under it](docs/screenshots/display-overview.png)
 
 *Made-up example data, drawn by the same code the display runs.*
 
@@ -81,12 +81,15 @@ after your last press, with the LED on the back lit, then goes back to the overv
 The pages, for each student:
 
 - **Overview**: every class's grade for the current grading period, missing work and what's
-  coming up. Classes at C- or below have their grade in a black box with a "!".
+  coming up. Classes at C- or below have their grade in a black box with a "!". The number of
+  missing assignments is in large type in a black box, so you can read it from across a room;
+  with nothing missing it says "All caught up".
 - **Missing**: all missing work this grading period.
 - **Coming up**: upcoming work, soonest first.
 
-The header says when the dashboard last updated from Skyward and the battery level. It says so
-if the last update failed, if Skyward rejected the sign-in, or if the data is over a day old.
+The header says when something on it last changed (not every update finds something new) and the
+battery level. It says so if the last update failed, if Skyward rejected the sign-in, or if the
+data is over a day old.
 
 Other screens you may see:
 
@@ -94,8 +97,8 @@ Other screens you may see:
   screen until then, and keeps trying every 30 minutes.
 - **Charge me** in the header: under 15%. It wakes half as often to stretch the charge.
 - **Battery empty**: under 5%. It stops using Wi-Fi and sleeps until you charge it.
-- **Maintenance mode**: awake for 5 minutes with its address on screen, for updates over Wi-Fi
-  and for logs (`esphome logs skyward-display.yaml`).
+- **Maintenance mode**: awake for 5 minutes with its address on screen and the LED on, for
+  updates over Wi-Fi and for logs (`esphome logs skyward-display.yaml`).
 
 To show one student only, for a display in a child's room, set `student: "0"` (or `"1"`, ...) in
 your file. The green button then does nothing.
@@ -156,6 +159,7 @@ or removed; a breaking change would be a new version, served alongside this one.
 | `hash` | changes only when something shown changes; compare it to skip a redraw |
 | `sleep_seconds` | until just after the next scheduled update, between 15 minutes and 12 hours |
 | `updated` | the date of the last successful update, such as `Mon Sep 28` |
+| `changed` | when the last update that changed something finished, such as `Mon Sep 28, 9:02 AM` (0.8.2 and later) |
 | `stale` | the last successful update is over a day old |
 | `sync_error` | a short message if the last update failed, else `null` |
 | `students[]` | `name` (first name), `grading_period`, `grades[]`, `missing`, `upcoming` |

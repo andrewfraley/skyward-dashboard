@@ -107,6 +107,12 @@ def short_date(iso_date: str | None) -> str:
     return f"{d:%a %b} {d.day}"
 
 
+def clock(when: datetime) -> str:
+    """'9:02 AM'."""
+    hour = when.hour % 12 or 12
+    return f"{hour}:{when.minute:02d} {'AM' if when.hour < 12 else 'PM'}"
+
+
 def due_label(iso_date: str | None, today: str) -> str:
     days = days_until(iso_date, today)
     if days is None:
@@ -202,6 +208,14 @@ def _sync_state(database: Database, now: datetime, paused: bool) -> dict:
         if success and success["finished_at"]
         else None
     )
+    # When the data last changed, not when it was last checked: it moves only
+    # when the content does, so the hash stays put between unchanged syncs.
+    change = database.last_change()
+    changed = (
+        datetime.fromisoformat(change["finished_at"]).astimezone(now.tzinfo)
+        if change and change["finished_at"]
+        else None
+    )
     error = None
     if paused:
         error = "Skyward sign-in rejected"
@@ -210,6 +224,9 @@ def _sync_state(database: Database, now: datetime, paused: bool) -> dict:
     return {
         "updated": (
             short_date(finished.astimezone(now.tzinfo).date().isoformat()) if finished else ""
+        ),
+        "changed": (
+            f"{short_date(changed.date().isoformat())}, {clock(changed)}" if changed else ""
         ),
         "stale": finished is None or now - finished > STALE_AFTER,
         "sync_error": error,

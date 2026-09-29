@@ -157,6 +157,19 @@ class Database:
             ).fetchone()
             return dict(row) if row else None
 
+    def last_change(self) -> dict | None:
+        """The last good sync that changed something, or the first good one if none has."""
+        with self.connect() as db:
+            row = (
+                db.execute(
+                    "SELECT * FROM sync_runs WHERE status = 'ok' AND changes > 0 ORDER BY id DESC LIMIT 1"
+                ).fetchone()
+                or db.execute(
+                    "SELECT * FROM sync_runs WHERE status = 'ok' ORDER BY id LIMIT 1"
+                ).fetchone()
+            )
+            return dict(row) if row else None
+
     def counts(self) -> dict[str, Counter]:
         """Courses and assignments cached per student id."""
         with self.connect() as db:

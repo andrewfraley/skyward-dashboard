@@ -28,6 +28,10 @@ font:
     id: font_small # 2 px
     size: 18
     bpp: 1
+  - file: "gfonts://Inter@700"
+    id: font_number # 8 px: the missing count, read from across a room
+    size: 53
+    bpp: 1
   # White text on black loses its thin strokes to ink bleed on e-paper, so
   # anything reversed out of black is bold.
   - file: "gfonts://Inter@700"
@@ -35,8 +39,8 @@ font:
     size: 20
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_huge # 6 px
-    size: 44
+    id: font_huge # 7 px
+    size: 47
     bpp: 1
 
 display:
@@ -97,26 +101,41 @@ display:
       const char *pages[] = {"Overview", "Missing", "Coming up"};
       int p = id(page);
 
-      // Header: name and page on the left, freshness and battery on the right.
-      it.filled_rectangle(0, 0, W, HEADER, ink);
+      auto width_in = [&](display::BaseFont *f, const std::string &t) {
+        int a, b, w, h;
+        it.get_text_bounds(0, 0, t.c_str(), f, TextAlign::TOP_LEFT, &a, &b, &w, &h);
+        return w;
+      };
+      // Rounded rectangle, filled.
+      auto rrect = [&](int x, int y, int w, int h, int r, Color c) {
+        for (int dy = 0; dy < h; dy++) {
+          float d = dy < r ? r - dy - 0.5f : (dy >= h - r ? dy - (h - r) + 0.5f : 0.f);
+          int inset = d > 0 ? (int) std::lround(r - std::sqrt(std::max(0.f, r * r - d * d))) : 0;
+          it.horizontal_line(x + inset, y + dy, w - 2 * inset, c);
+        }
+      };
+
+      // Header: black on white like the web page, with a heavy rule under it.
+      // Name and page on the left, freshness and battery on the right.
       std::string name = s["name"] | "";
-      std::string left = name + "  -  " + pages[p];
-      text(M, 12, id(font_title), paper, TextAlign::TOP_LEFT, left);
-      int lx, ly, lw, lh;
-      it.get_text_bounds(M, 12, left.c_str(), id(font_title), TextAlign::TOP_LEFT, &lx, &ly, &lw, &lh);
+      std::string title = p == 0 ? name + "'s grades" : name + "  -  " + pages[p];
+      text(M, 12, id(font_title), ink, TextAlign::TOP_LEFT, title);
+      int dots_x = M + width_in(id(font_title), title) + 22;
       for (int i = 0; i < 3; i++) {  // page dots, filled for this page
-        int cx = M + lw + 24 + i * 18;
-        if (i == p) it.filled_circle(cx, 28, 6, paper); else it.circle(cx, 28, 6, paper);
+        int cx = dots_x + i * 18;
+        if (i == p) it.filled_circle(cx, 27, 6, ink); else it.circle(cx, 27, 6, ink);
       }
       std::string status;
       const char *err = root["sync_error"] | "";
       if (*err) status = err;
       else if (root["stale"] | false) status = std::string("Not updated since ") + (root["updated"] | "?");
-      else status = std::string("Updated ") + (root["updated"] | "");
+      else if (*(root["changed"] | "")) status = std::string("Last change ") + (root["changed"] | "");
+      else status = std::string("Updated ") + (root["updated"] | "");  // a dashboard before 0.8.2
       int batt = id(battery_percent);
       if (batt >= 0) status += batt < 15 ? "  |  Charge me " + std::to_string(batt) + "%" : "  |  " + std::to_string(batt) + "%";
-      int right_start = M + lw + 24 + 3 * 18 + 16;
-      text(W - M, 15, id(font_reversed), paper, TextAlign::TOP_RIGHT, fit(id(font_reversed), status, W - M - right_start));
+      int right_start = dots_x + 3 * 18 + 12;
+      text(W - M, 17, id(font_small), ink, TextAlign::TOP_RIGHT, fit(id(font_small), status, W - M - right_start));
+      it.filled_rectangle(0, HEADER - 4, W, 3, ink);
 
       // A list row: title on the left, a label on the right, course under the title.
       auto item = [&](int x, int y, int width, JsonObject a, const char *label_key) {
@@ -185,11 +204,24 @@ display:
 
         int x = COL + 20, width = W - M - x;
         y = top;
+        // The missing count, big enough to read from across a room: black when
+        // there's any, an outline when there's none.
         int n = missing["count"] | 0;
-        heading(x, y, "Missing", n);
-        y += 36;
         JsonArray mi = missing["items"];
-        if (n == 0) { text(x, y, id(font_body), ink, TextAlign::TOP_LEFT, "All caught up"); y += 34; }
+        const int BH = 66;
+        if (n > 0) {
+          rrect(x, y - 4, width, BH, 12, ink);
+          std::string num = std::to_string(n);
+          text(x + 16, y + 2, id(font_number), paper, TextAlign::TOP_LEFT, num);
+          int lx = x + 16 + width_in(id(font_number), num) + 14;
+          text(lx, y + 8, id(font_reversed), paper, TextAlign::TOP_LEFT, "missing");
+          text(lx, y + 32, id(font_reversed), paper, TextAlign::TOP_LEFT, "this grading period");
+        } else {
+          rrect(x, y - 4, width, BH, 12, ink);
+          rrect(x + 3, y - 1, width - 6, BH - 6, 9, paper);
+          text(x + width / 2, y + 16, id(font_heading), ink, TextAlign::TOP_CENTER, "All caught up");
+        }
+        y += BH + 8;
         int shown_missing = std::min<int>(mi.size(), 3);
         for (int i = 0; i < shown_missing; i++, y += 52) item(x, y, width, mi[i], "due");
         if (n > shown_missing) { more(x, y, n - shown_missing); y += 24; }

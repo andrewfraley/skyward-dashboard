@@ -227,7 +227,11 @@ script:
           condition: wifi.connected
           then:
             - http_request.get:
-                url: ${dashboard_url}/api/display?v=1
+                url: !lambda |-
+                  // Accept dashboard_url with or without a trailing slash.
+                  std::string base = "${dashboard_url}";
+                  while (!base.empty() && base.back() == '/') base.pop_back();
+                  return base + "/api/display?v=1";
                 capture_response: true
                 max_response_buffer_size: 16kB
                 on_response:
@@ -293,6 +297,7 @@ script:
   - id: maintenance
     then:
       - deep_sleep.prevent: deep_sleep_ctl
+      - output.turn_on: status_led # on for as long as it stays awake
       - lambda: id(screen) = 3;
       - wifi.enable:
       - wait_until:
