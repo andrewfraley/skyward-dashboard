@@ -5,7 +5,7 @@ shelf or a fridge, without opening a browser. The display fetches from your dash
 home network, redraws only when something changed, and sleeps in between, so a charge lasts a
 long time.
 
-![The display's overview: a header with the student's name, the page and when the dashboard last updated, grades down the left with a D flagged in a black box with an exclamation mark, and missing and upcoming work on the right](docs/screenshots/display-overview.png)
+![The display's overview: a white header with the student's name, the page and when the dashboard last updated, grades down the left with a D flagged in a black box with an exclamation mark, a large count of missing assignments in a black box on the right, and upcoming work under it](docs/screenshots/display-overview.png)
 
 *Made-up example data, drawn by the same code the display runs.*
 
@@ -81,7 +81,9 @@ after your last press, with the LED on the back lit, then goes back to the overv
 The pages, for each student:
 
 - **Overview**: every class's grade for the current grading period, missing work and what's
-  coming up. Classes at C- or below have their grade in a black box with a "!".
+  coming up. Classes at C- or below have their grade in a black box with a "!". The number of
+  missing assignments is in large type in a black box, so you can read it from across a room;
+  with nothing missing it says "All caught up".
 - **Missing**: all missing work this grading period.
 - **Coming up**: upcoming work, soonest first.
 
