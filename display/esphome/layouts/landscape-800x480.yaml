@@ -1,110 +1,69 @@
 # The 800x480 landscape layout: three pages per student and the status screens.
 # Draws from common/skyward.yaml's globals; any 800x480 display can use it.
 #
-# Everything is black on white. Status is never shown by an inverted box alone:
-# a struggling grade also gets a "!", and the header spells out any problem.
+# A small caption and a large title, then rounded cards: lists with hairline
+# separators, widgets for the overview, and a page control at the bottom. Black on white only; weight and size do the work grey would.
+# Status is never shown by an inverted shape alone: a struggling grade also gets
+# an alert symbol, and the header spells out any problem.
 
-# Sizes are chosen so every stem is a whole number of pixels: at 1 bit per pixel
-# a 2.5 px stem renders as a mix of 2 and 3, and letters look uneven. Measure
-# before changing a size (DEVELOPING.md, "E-paper display").
+# Sizes are chosen so every stem is a whole number of pixels (font_stems.py).
 font:
   - file: "gfonts://Inter@700"
-    id: font_title # 4 px stems
-    size: 27
-    bpp: 1
-  - file: "gfonts://Inter@700"
-    id: font_grade # 5 px
+    id: font_large_title # 5 px stems
     size: 34
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_heading # 4 px
-    size: 27
+    id: font_caption # 2 px: tracked capitals for captions and section headers
+    size: 15
     bpp: 1
   - file: "gfonts://Inter@600"
-    id: font_body # 3 px
+    id: font_row # 3 px
     size: 24
     bpp: 1
   - file: "gfonts://Inter@500"
-    id: font_small # 2 px
+    id: font_secondary # 2 px
     size: 18
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_number # 8 px: the missing count, read from across a room
+    id: font_grade # 4 px
+    size: 28
+    bpp: 1
+  - file: "gfonts://Inter@700"
+    id: font_number # 8 px
     size: 53
     bpp: 1
-  # White text on black loses its thin strokes to ink bleed on e-paper, so
-  # anything reversed out of black is bold.
   - file: "gfonts://Inter@700"
-    id: font_reversed # 3 px
+    id: font_reversed # 3 px: white on black loses thin strokes to ink bleed
     size: 20
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_huge # 7 px
-    size: 47
+    id: font_empty # 4 px
+    size: 29
     bpp: 1
 
 display:
   - id: !extend epd
     lambda: |-
-      // epaper_spi treats "on" as white, like paper: ink is Color::BLACK.
       const Color ink = Color::BLACK, paper = Color::WHITE;
-      const int W = 800, H = 480, M = 20, HEADER = 56;
+      const int W = 800, H = 480, M = 24, TOP = 74, BOT = H - 34;
 
-      // Text cut to a width, with "..." when it doesn't fit.
-      auto fit = [&](display::BaseFont *f, std::string s, int width) -> std::string {
-        int x, y, w, h;
-        it.get_text_bounds(0, 0, s.c_str(), f, TextAlign::TOP_LEFT, &x, &y, &w, &h);
-        if (w <= width) return s;
-        while (!s.empty()) {
-          s.pop_back();
-          std::string t = s + "...";
-          it.get_text_bounds(0, 0, t.c_str(), f, TextAlign::TOP_LEFT, &x, &y, &w, &h);
-          if (w <= width) return t;
-        }
-        return "";
-      };
       auto text = [&](int x, int y, display::BaseFont *f, Color c, TextAlign a, const std::string &s) {
         it.print(x, y, f, c, a, s.c_str());
       };
-      auto centred = [&](int y, display::BaseFont *f, const std::string &s) {
-        text(W / 2, y, f, ink, TextAlign::TOP_CENTER, fit(f, s, W - 2 * M));
-      };
-
-      // Status screens: no data, or no data worth trusting.
-      if (id(screen) != 0) {
-        it.rectangle(M / 2, M / 2, W - M, H - M, ink);
-        if (id(screen) == 1) {
-          centred(170, id(font_huge), "Can't reach the dashboard");
-          centred(250, id(font_body), "Check that it's running and on this network.");
-          centred(285, id(font_body), "Trying again every ${retry_minutes} minutes.");
-        } else if (id(screen) == 2) {
-          centred(170, id(font_huge), "Battery empty");
-          centred(250, id(font_body), "Charge it to bring the dashboard back.");
-        } else {
-          centred(150, id(font_huge), "Maintenance mode");
-          centred(230, id(font_body), "Awake for ${maintenance_minutes} minutes for updates and logs.");
-          char ip[network::IP_ADDRESS_BUFFER_SIZE];
-          network::get_ip_addresses()[0].str_to(ip);
-          centred(265, id(font_body), std::string("Address: ") + ip);
-        }
-        return;
-      }
-
-      JsonObject root = id(doc).as<JsonObject>();
-      JsonArray students = root["students"];
-      if (students.size() == 0) {
-        centred(200, id(font_huge), "No students yet");
-        centred(270, id(font_body), "The dashboard hasn't finished its first update.");
-        return;
-      }
-      JsonObject s = students[id(student_index)];
-      const char *pages[] = {"Overview", "Missing", "Coming up"};
-      int p = id(page);
-
       auto width_in = [&](display::BaseFont *f, const std::string &t) {
         int a, b, w, h;
         it.get_text_bounds(0, 0, t.c_str(), f, TextAlign::TOP_LEFT, &a, &b, &w, &h);
         return w;
+      };
+      // Text cut to a width, with "..." when it doesn't fit.
+      auto fit = [&](display::BaseFont *f, std::string s, int width) -> std::string {
+        if (width_in(f, s) <= width) return s;
+        while (!s.empty()) {
+          s.pop_back();
+          while (!s.empty() && s.back() == ' ') s.pop_back();
+          if (width_in(f, s + "...") <= width) return s + "...";
+        }
+        return "";
       };
       // Rounded rectangle, filled.
       auto rrect = [&](int x, int y, int w, int h, int r, Color c) {
@@ -114,145 +73,360 @@ display:
           it.horizontal_line(x + inset, y + dy, w - 2 * inset, c);
         }
       };
+      // A card: rounded, 2 px outline. Draw it before what goes in it.
+      auto card = [&](int x, int y, int w, int h) {
+        rrect(x, y, w, h, 16, ink);
+        rrect(x + 2, y + 2, w - 4, h - 4, 14, paper);
+      };
+      // Tracked capitals: a caption or section header.
+      auto upper = [&](std::string s) {
+        for (auto &ch : s) ch = toupper(ch);
+        return s;
+      };
+      auto caps_width = [&](const std::string &s) {
+        int w = 0;
+        for (char ch : s) w += width_in(id(font_caption), std::string(1, ch)) + 1;
+        return s.empty() ? 0 : w - 1;
+      };
+      auto caps = [&](int x, int y, Color c, const std::string &raw) {
+        std::string s = upper(raw);
+        for (char ch : s) {
+          std::string g(1, ch);
+          text(x, y, id(font_caption), c, TextAlign::TOP_LEFT, g);
+          x += width_in(id(font_caption), g) + 1;
+        }
+        return x;
+      };
+      auto caps_right = [&](int right, int y, Color c, const std::string &s) {
+        return caps(right - caps_width(upper(s)), y, c, s);
+      };
+      auto thick = [&](int x1, int y1, int x2, int y2, int t, Color c) {
+        for (int dx = -t / 2; dx <= t / 2; dx++)
+          for (int dy = -t / 2; dy <= t / 2; dy++) it.line(x1 + dx, y1 + dy, x2 + dx, y2 + dy, c);
+      };
+      // Symbols: an exclamation mark or a check, knocked out of a filled circle.
+      auto alert = [&](int cx, int cy, int r, Color bg, Color fg) {
+        it.filled_circle(cx, cy, r, bg);
+        int t = std::max(3, r / 4);
+        it.filled_rectangle(cx - t / 2, cy - r * 6 / 10, t, r * 7 / 10, fg);
+        it.filled_rectangle(cx - t / 2, cy + r * 3 / 10, t, t, fg);
+      };
+      auto check = [&](int cx, int cy, int r, Color bg, Color fg) {
+        it.filled_circle(cx, cy, r, bg);
+        int t = std::max(3, r / 5);
+        thick(cx - r * 45 / 100, cy + r / 20, cx - r * 12 / 100, cy + r * 36 / 100, t, fg);
+        thick(cx - r * 12 / 100, cy + r * 36 / 100, cx + r * 45 / 100, cy - r * 32 / 100, t, fg);
+      };
+      auto centred = [&](int y, display::BaseFont *f, const std::string &s) {
+        text(W / 2, y, f, ink, TextAlign::TOP_CENTER, fit(f, s, W - 2 * M));
+      };
 
-      // Header: black on white like the web page, with a heavy rule under it.
-      // Name and page on the left, freshness and battery on the right.
+      // Status screens: a symbol, a title, a line or two. No frame.
+      if (id(screen) != 0) {
+        if (id(screen) == 1) {
+          alert(W / 2, 140, 40, ink, paper);
+          centred(210, id(font_large_title), "Can't reach the dashboard");
+          centred(258, id(font_row), "Check that it's running and on this network.");
+          centred(294, id(font_row), "Trying again every ${retry_minutes} minutes.");
+        } else if (id(screen) == 2) {
+          int bx = W / 2 - 60, by = 105;  // battery.0
+          rrect(bx, by, 112, 56, 14, ink);
+          rrect(bx + 6, by + 6, 100, 44, 9, paper);
+          rrect(bx + 116, by + 18, 8, 20, 3, ink);
+          centred(210, id(font_large_title), "Battery empty");
+          centred(258, id(font_row), "Charge it to bring the dashboard back.");
+        } else {
+          check(W / 2, 140, 40, ink, paper);
+          centred(210, id(font_large_title), "Maintenance mode");
+          centred(258, id(font_row), "Awake for ${maintenance_minutes} minutes for updates and logs.");
+          char ip[network::IP_ADDRESS_BUFFER_SIZE];
+          network::get_ip_addresses()[0].str_to(ip);
+          centred(294, id(font_row), std::string("Address: ") + ip);
+          centred(350, id(font_secondary), "Hold the green button to restart.");
+        }
+        return;
+      }
+
+      JsonObject root = id(doc).as<JsonObject>();
+      JsonArray students = root["students"];
+      if (students.size() == 0) {
+        centred(190, id(font_large_title), "No students yet");
+        centred(240, id(font_row), "The dashboard hasn't finished its first update.");
+        return;
+      }
+      JsonObject s = students[id(student_index)];
+      int p = id(page);
+      JsonObject missing = s["missing"], upcoming = s["upcoming"];
+
+      // Caption: student and grading period. Right: status and battery.
       std::string name = s["name"] | "";
-      std::string title = p == 0 ? name + "'s grades" : name + "  -  " + pages[p];
-      text(M, 12, id(font_title), ink, TextAlign::TOP_LEFT, title);
-      int dots_x = M + width_in(id(font_title), title) + 22;
-      for (int i = 0; i < 3; i++) {  // page dots, filled for this page
-        int cx = dots_x + i * 18;
-        if (i == p) it.filled_circle(cx, 27, 6, ink); else it.circle(cx, 27, 6, ink);
+      std::string gp = s["grading_period"] | "";
+      if (gp.size() > 2 && gp.rfind("GP", 0) == 0) gp = "Grading period " + gp.substr(2);
+      int cx = caps(M, 8, ink, name);
+      if (!gp.empty()) {
+        it.filled_circle(cx + 8, 16, 2, ink);
+        cx = caps(cx + 17, 8, ink, gp);
+      }
+      int right = W - M;
+      int batt = id(battery_percent);
+      if (batt >= 0) {  // a battery: body, cap, and a level
+        const int bw = 30, bh = 15, by = 9;
+        int bx = right - bw - 3;
+        rrect(bx, by, bw, bh, 4, ink);
+        rrect(bx + 2, by + 2, bw - 4, bh - 4, 3, paper);
+        rrect(bx + bw + 1, by + 5, 3, 5, 1, ink);
+        it.filled_rectangle(bx + 4, by + 4, std::max(2, (bw - 8) * batt / 100), bh - 8, ink);
+        std::string level = std::to_string(batt) + "%";
+        if (batt < 15) level = "Charge me  " + level;
+        text(bx - 8, 6, id(font_secondary), ink, TextAlign::TOP_RIGHT, level);
+        right = bx - 8 - width_in(id(font_secondary), level) - 18;
       }
       std::string status;
       const char *err = root["sync_error"] | "";
+      bool problem = *err || (root["stale"] | false);
       if (*err) status = err;
       else if (root["stale"] | false) status = std::string("Not updated since ") + (root["updated"] | "?");
       else if (*(root["changed"] | "")) status = std::string("Last change ") + (root["changed"] | "");
-      else status = std::string("Updated ") + (root["updated"] | "");  // a dashboard before 0.8.2
-      int batt = id(battery_percent);
-      if (batt >= 0) status += batt < 15 ? "  |  Charge me " + std::to_string(batt) + "%" : "  |  " + std::to_string(batt) + "%";
-      int right_start = dots_x + 3 * 18 + 12;
-      text(W - M, 17, id(font_small), ink, TextAlign::TOP_RIGHT, fit(id(font_small), status, W - M - right_start));
-      it.filled_rectangle(0, HEADER - 4, W, 3, ink);
+      else status = std::string("Updated ") + (root["updated"] | "");
+      int room = right - cx - 24 - (problem ? 28 : 0);
+      status = fit(id(font_secondary), status, room);
+      text(right, 6, id(font_secondary), ink, TextAlign::TOP_RIGHT, status);
+      if (problem) alert(right - width_in(id(font_secondary), status) - 16, 17, 10, ink, paper);
 
-      // A list row: title on the left, a label on the right, course under the title.
-      auto item = [&](int x, int y, int width, JsonObject a, const char *label_key) {
-        std::string label = a[label_key] | "";
-        int bx, by, bw, bh;
-        it.get_text_bounds(0, 0, label.c_str(), id(font_small), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-        text(x, y, id(font_body), ink, TextAlign::TOP_LEFT, fit(id(font_body), a["title"] | "", width - bw - 12));
-        text(x + width, y + 3, id(font_small), ink, TextAlign::TOP_RIGHT, label);
-        text(x, y + 25, id(font_small), ink, TextAlign::TOP_LEFT, fit(id(font_small), a["course"] | "", width));
+      // Large title, with a summary on the right at the same baseline.
+      const char *titles[] = {"Grades", "Missing", "Coming Up"};
+      text(M, 60, id(font_large_title), ink, TextAlign::BASELINE_LEFT, titles[p]);
+      // Parts joined by a drawn dot (the fonts carry only ASCII), ending at the right
+      // margin. Urgent: the last part in a black capsule, and an alert symbol first.
+      auto summary = [&](const std::vector<std::string> &parts, bool urgent) {
+        int x = W - M;
+        for (int i = (int) parts.size() - 1; i >= 0; i--) {
+          if (urgent && i == (int) parts.size() - 1) {
+            int w = width_in(id(font_reversed), parts[i]) + 24;
+            rrect(x - w, 35, w, 29, 14, ink);
+            text(x - 12, 57, id(font_reversed), paper, TextAlign::BASELINE_RIGHT, parts[i]);
+            x -= w;
+          } else {
+            text(x, 60, id(font_row), ink, TextAlign::BASELINE_RIGHT, parts[i]);
+            x -= width_in(id(font_row), parts[i]);
+          }
+          if (i > 0) {
+            it.filled_circle(x - 10, 52, 2, ink);
+            x -= 20;
+          }
+        }
+        if (urgent) alert(x - 20, 50, 11, ink, paper);
       };
-      auto more = [&](int x, int y, int n) {
-        if (n > 0) text(x, y, id(font_small), ink, TextAlign::TOP_LEFT, "+ " + std::to_string(n) + " more");
-      };
-      auto heading = [&](int x, int y, const std::string &h, int count) {
-        text(x, y, id(font_heading), ink, TextAlign::TOP_LEFT, h);
-        if (count < 0) return;
-        int hx, hy, hw, hh;
-        it.get_text_bounds(x, y, h.c_str(), id(font_heading), TextAlign::TOP_LEFT, &hx, &hy, &hw, &hh);
-        std::string n = std::to_string(count);  // count in an inverted badge
-        int nx, ny, nw, nh;
-        it.get_text_bounds(0, 0, n.c_str(), id(font_reversed), TextAlign::TOP_LEFT, &nx, &ny, &nw, &nh);
-        it.filled_rectangle(x + hw + 10, y + 1, nw + 16, 27, ink);
-        text(x + hw + 18, y + 3, id(font_reversed), paper, TextAlign::TOP_LEFT, n);
-      };
+      // When the grading period ends: the deadline for what's missing.
+      int left = s["period_days_left"] | -1;
+      std::string ends = s["period_ends"] | "";
+      if (left < 0) ends = "";
+      else if (left == 0) ends = "today";
+      else if (left == 1) ends = "tomorrow";
+      // The last week of a period with work still missing: say so loudly.
+      bool urgent = !ends.empty() && left < 7 && (missing["count"] | 0) > 0;
 
-      JsonObject missing = s["missing"], upcoming = s["upcoming"];
-      int top = HEADER + 16;
+      // Page control: a capsule for this page, dots for the others. Either side,
+      // where the white buttons go: left for the previous page, right for the next.
+      {
+        const char *names[] = {"Grades", "Missing", "Coming Up"};
+        auto chevron = [&](int x, int cy, int dir) {  // dir -1 points left, 1 right
+          thick(x, cy - 6, x + 6 * dir, cy, 3, ink);
+          thick(x + 6 * dir, cy, x, cy + 6, 3, ink);
+        };
+        chevron(M + 6, H - 16, -1);
+        text(M + 16, H - 10, id(font_secondary), ink, TextAlign::BASELINE_LEFT, names[(p + 2) % 3]);
+        chevron(W - M - 6, H - 16, 1);
+        text(W - M - 16, H - 10, id(font_secondary), ink, TextAlign::BASELINE_RIGHT, names[(p + 1) % 3]);
+
+        int x = W / 2 - (20 + 8 + 8 + 2 * 10) / 2, y = H - 20;
+        for (int i = 0; i < 3; i++) {
+          if (i == p) {
+            rrect(x, y, 20, 8, 4, ink);
+            x += 30;
+          } else {
+            rrect(x, y, 8, 8, 4, ink);
+            rrect(x + 2, y + 2, 4, 4, 2, paper);
+            x += 18;
+          }
+        }
+      }
+      // Empty state: a big check, a title, a line.
+      auto empty = [&](const std::string &title, const std::string &line) {
+        check(W / 2, 210, 38, ink, paper);
+        text(W / 2, 272, id(font_empty), ink, TextAlign::TOP_CENTER, title);
+        text(W / 2, 312, id(font_secondary), ink, TextAlign::TOP_CENTER, line);
+      };
+      // A two-line row: title, course under it, an optional label on the right.
+      auto row = [&](int x, int y, int w, JsonObject a, const std::string &label) {
+        int lw = label.empty() ? 0 : width_in(id(font_secondary), label) + 14;
+        text(x + 20, y + 28, id(font_row), ink, TextAlign::BASELINE_LEFT, fit(id(font_row), a["title"] | "", w - 40 - lw));
+        if (lw) text(x + w - 20, y + 28, id(font_secondary), ink, TextAlign::BASELINE_RIGHT, label);
+        text(x + 20, y + 50, id(font_secondary), ink, TextAlign::BASELINE_LEFT, fit(id(font_secondary), a["course"] | "", w - 40));
+      };
+      const int RH = 60;  // row height in a list
 
       if (p == 0) {
-        // Left: grades. Right: missing and upcoming, three each.
-        const int COL = 425;
-        auto width_of = [&](const char *t) {
-          int x, y, w, h;
-          it.get_text_bounds(0, 0, t, id(font_grade), TextAlign::TOP_LEFT, &x, &y, &w, &h);
-          return w;
-        };
-        int LETTER_W = 0;
-        for (const char *l : {"A", "B", "C", "D", "F"}) LETTER_W = std::max(LETTER_W, width_of(l));
-        const int MOD_W = std::max(width_of("+"), width_of("-")) + 2, BANG_W = width_of("!") + 2, PAD = 6;
-        const int GRADE_X = COL - 112 - (LETTER_W + MOD_W + BANG_W + PAD);  // clear of the percent
-        int y = top;
+        // Left: grades in an inset grouped list. Right: two widgets.
+        if (!ends.empty()) {
+          if (left > 1) summary({"Period ends " + ends, std::to_string(left) + " days left"}, urgent);
+          else summary({"Period ends " + ends}, urgent);
+        }
+        const int GX = M, GW = 436, GY = TOP, GH = BOT - TOP;
+        card(GX, GY, GW, GH);
         JsonArray grades = s["grades"];
         int rows = std::min<int>(grades.size(), 9);
-        int step = rows > 7 ? 42 : 50;
+        if (rows == 0) text(GX + GW / 2, GY + GH / 2, id(font_secondary), ink, TextAlign::CENTER, "No grades yet");
+        int rh = rows ? std::min(52, (GH - 12) / rows) : 0;
+        int y0 = GY + (GH - rows * rh) / 2;
+        int LETTER_W = 0;
+        for (const char *l : {"A", "B", "C", "D", "F"}) LETTER_W = std::max(LETTER_W, width_in(id(font_grade), l));
+        const int MOD_W = std::max(width_in(id(font_grade), "+"), width_in(id(font_grade), "-")) + 1;
+        const int SLOT = GX + GW - 22 - (LETTER_W + MOD_W);  // letters line up down the column
         for (int i = 0; i < rows; i++) {
           JsonObject g = grades[i];
+          int cy = y0 + i * rh + rh / 2;
+          if (i > 0) it.horizontal_line(GX + 20, y0 + i * rh, GW - 22, ink);
           bool low = g["struggling"] | false;
-          std::string grade = g["letter"] | "";
+          std::string grade = g["letter"] | "", pct = g["percent"] | "";
           std::string letter = grade.substr(0, 1), modifier = grade.size() > 1 ? grade.substr(1) : "";
-          text(M, y + 8, id(font_body), ink, TextAlign::TOP_LEFT, fit(id(font_body), g["course"] | "", GRADE_X - 12 - M));
-          // Fixed slots, so letters and modifiers line up down the column: the
-          // letter centred in the width of the widest one, then +/-, then "!".
+          int px = SLOT - 22;
+          int course_w = px - width_in(id(font_secondary), pct) - 18 - (GX + 20) - (low ? 30 : 0);
+          std::string course = fit(id(font_row), g["course"] | "", course_w);
+          text(GX + 20, cy, id(font_row), ink, TextAlign::CENTER_LEFT, course);
           Color fg = ink;
-          if (low) {  // inverted, and the "!" says the same thing without the box
-            it.filled_rectangle(GRADE_X - PAD, y, LETTER_W + MOD_W + BANG_W + 2 * PAD, 42, ink);
+          if (low) {
+            alert(GX + 20 + width_in(id(font_row), course) + 20, cy, 11, ink, paper);
+            int ph = std::min(34, rh - 6);
+            rrect(SLOT - 12, cy - ph / 2, LETTER_W + MOD_W + 22, ph, ph / 2, ink);
             fg = paper;
-            text(GRADE_X + LETTER_W + MOD_W, y + 3, id(font_grade), fg, TextAlign::TOP_LEFT, "!");
           }
-          text(GRADE_X + LETTER_W / 2, y + 3, id(font_grade), fg, TextAlign::TOP_CENTER, letter);
-          text(GRADE_X + LETTER_W, y + 3, id(font_grade), fg, TextAlign::TOP_LEFT, modifier);
-          text(COL - 20, y + 8, id(font_body), ink, TextAlign::TOP_RIGHT, g["percent"] | "");
-          y += step;
+          text(SLOT + LETTER_W / 2, cy, id(font_grade), fg, TextAlign::CENTER, letter);
+          text(SLOT + LETTER_W, cy, id(font_grade), fg, TextAlign::CENTER_LEFT, modifier);
+          text(px, cy, id(font_secondary), ink, TextAlign::CENTER_RIGHT, pct);
         }
-        if (grades.size() == 0) text(M, y, id(font_body), ink, TextAlign::TOP_LEFT, "No grades yet");
-        it.vertical_line(COL, top, H - top - M, ink);
 
-        int x = COL + 20, width = W - M - x;
-        y = top;
-        // The missing count, big enough to read from across a room: black when
-        // there's any, an outline when there's none.
+        const int RX = GX + GW + 16, RW = W - M - RX, MH = 104;
         int n = missing["count"] | 0;
         JsonArray mi = missing["items"];
-        const int BH = 66;
-        if (n > 0) {
-          rrect(x, y - 4, width, BH, 12, ink);
+        if (n > 0) {  // black when something's missing: the one thing to notice
+          rrect(RX, TOP, RW, MH, 16, ink);
+          caps(RX + 18, TOP + 14, paper, "Missing");
           std::string num = std::to_string(n);
-          text(x + 16, y + 2, id(font_number), paper, TextAlign::TOP_LEFT, num);
-          int lx = x + 16 + width_in(id(font_number), num) + 14;
-          text(lx, y + 8, id(font_reversed), paper, TextAlign::TOP_LEFT, "missing");
-          text(lx, y + 32, id(font_reversed), paper, TextAlign::TOP_LEFT, "this grading period");
+          text(RX + 18, TOP + MH - 14, id(font_number), paper, TextAlign::BASELINE_LEFT, num);
+          int nx = RX + 18 + width_in(id(font_number), num) + 16, nw = RX + RW - 18 - nx;
+          JsonObject first = mi[0];
+          text(nx, TOP + 66, id(font_reversed), paper, TextAlign::BASELINE_LEFT, fit(id(font_reversed), first["title"] | "", nw));
+          std::string sub = n > 1 ? "and " + std::to_string(n - 1) + " more" : std::string(first["course"] | "");
+          text(nx, TOP + 92, id(font_reversed), paper, TextAlign::BASELINE_LEFT, fit(id(font_reversed), sub, nw));
         } else {
-          rrect(x, y - 4, width, BH, 12, ink);
-          rrect(x + 3, y - 1, width - 6, BH - 6, 9, paper);
-          text(x + width / 2, y + 16, id(font_heading), ink, TextAlign::TOP_CENTER, "All caught up");
+          card(RX, TOP, RW, MH);
+          caps(RX + 18, TOP + 14, ink, "Missing");
+          check(RX + 40, TOP + 64, 20, ink, paper);
+          text(RX + 72, TOP + 64, id(font_empty), ink, TextAlign::CENTER_LEFT, "All caught up");
         }
-        y += BH + 8;
-        int shown_missing = std::min<int>(mi.size(), 3);
-        for (int i = 0; i < shown_missing; i++, y += 52) item(x, y, width, mi[i], "due");
-        if (n > shown_missing) { more(x, y, n - shown_missing); y += 24; }
-        // Coming up takes whatever room is left.
-        y += 14;
+
+        const int UY = TOP + MH + 12, UH = BOT - UY;
+        card(RX, UY, RW, UH);
+        caps(RX + 18, UY + 14, ink, "Coming up");
+        int week = upcoming["due_this_week"] | 0;
+        if (week > 0) caps_right(RX + RW - 18, UY + 14, ink, std::to_string(week) + " this week");
         n = upcoming["count"] | 0;
-        heading(x, y, "Coming up", -1);
-        y += 36;
         JsonArray ui = upcoming["items"];
-        if (n == 0) text(x, y, id(font_body), ink, TextAlign::TOP_LEFT, "Nothing due");
-        int room = (H - M - y) / 52;
-        if (n > room) room = (H - M - 24 - y) / 52;  // leave a line for "+ N more"
-        int shown_upcoming = std::max(0, std::min<int>(ui.size(), room));
-        for (int i = 0; i < shown_upcoming; i++, y += 52) item(x, y, width, ui[i], "due");
-        more(x, y, n - shown_upcoming);
+        const int ROW = 54, Y0 = UY + 34;
+        if (n == 0) text(RX + 18, Y0 + 8, id(font_row), ink, TextAlign::TOP_LEFT, "Nothing due");
+        int fits = (UY + UH - 8 - Y0) / ROW;
+        if (n > fits) fits = (UY + UH - 26 - Y0) / ROW;  // a line for "+ N more"
+        int shown = std::max(0, std::min<int>(ui.size(), fits));
+        for (int i = 0; i < shown; i++) {
+          int y = Y0 + i * ROW;
+          if (i > 0) it.horizontal_line(RX + 18, y, RW - 20, ink);
+          JsonObject a = ui[i];
+          std::string due = a["due"] | "";
+          int dw = width_in(id(font_secondary), due);
+          text(RX + 18, y + 25, id(font_row), ink, TextAlign::BASELINE_LEFT, fit(id(font_row), a["title"] | "", RW - 36));
+          text(RX + 18, y + 46, id(font_secondary), ink, TextAlign::BASELINE_LEFT, fit(id(font_secondary), a["course"] | "", RW - 36 - dw - 12));
+          text(RX + RW - 18, y + 46, id(font_secondary), ink, TextAlign::BASELINE_RIGHT, due);
+        }
+        if (n > shown) text(RX + 18, UY + UH - 12, id(font_secondary), ink, TextAlign::BASELINE_LEFT, "+ " + std::to_string(n - shown) + " more");
         return;
       }
 
-      // Pages 1 and 2: one line per assignment, in two columns of up to 6.
-      JsonObject list = p == 1 ? missing : upcoming;
-      JsonArray items = list["items"];
-      int count = list["count"] | 0;
-      heading(M, top, p == 1 ? "Missing this grading period" : "Coming up", count);
-      if (count == 0) {
-        text(M, top + 50, id(font_body), ink, TextAlign::TOP_LEFT, p == 1 ? "All caught up" : "Nothing due");
+      if (p == 1) {
+        // Missing: one inset grouped list, in two columns past five.
+        int count = missing["count"] | 0;
+        JsonArray items = missing["items"];
+        if (count == 0) {
+          if (!ends.empty()) summary({"Period ends " + ends}, false);
+          empty("All caught up", "Nothing missing this grading period.");
+          return;
+        }
+        if (ends.empty()) summary({std::to_string(count) + " this grading period"}, false);
+        else summary({std::to_string(count) + " this grading period", "ends " + ends}, urgent);
+        const int PER = (BOT - TOP) / RH;
+        int shown = std::min<int>(items.size(), 2 * PER);
+        int cols = shown > PER ? 2 : 1;
+        int colw = cols == 1 ? W - 2 * M : (W - 2 * M - 16) / 2;
+        for (int c = 0; c < cols; c++) {
+          int first = c * PER, n = std::min(PER, shown - first);
+          int x = M + c * (colw + 16);
+          card(x, TOP, colw, n * RH);
+          for (int i = 0; i < n; i++) {
+            int y = TOP + i * RH;
+            if (i > 0) it.horizontal_line(x + 20, y, colw - 22, ink);
+            JsonObject a = items[first + i];
+            row(x, y, colw, a, a["due"] | "");
+          }
+        }
         return;
       }
-      const int colw = (W - 3 * M) / 2;
-      int shown = std::min<int>(items.size(), 12);
-      for (int i = 0; i < shown; i++) {
-        int x = M + (i / 6) * (colw + M), y = top + 44 + (i % 6) * 56;
-        item(x, y, colw, items[i], "due");
+
+      // Coming up: grouped by day, flowing into two columns.
+      int count = upcoming["count"] | 0;
+      JsonArray items = upcoming["items"];
+      if (count == 0) {
+        empty("Nothing due", "No upcoming assignments.");
+        return;
       }
-      more(M, H - M - 18, count - shown);
+      const int HDR = 28, GAP = 12, colw = (W - 2 * M - 16) / 2;
+      struct Group { int x, y, first, n; };
+      std::vector<Group> groups;
+      int col = 0, y = TOP - 6, shown = 0;
+      std::string last;
+      for (int i = 0; i < (int) items.size(); i++) {
+        std::string due = items[i]["due"] | "";
+        bool fresh = groups.empty() || due != last;
+        int need = RH + (fresh ? HDR + (y > TOP ? GAP : 0) : 0);
+        if (y + need > BOT) {
+          if (col == 1) break;
+          col = 1;
+          y = TOP - 6;
+          fresh = true;  // the day carries on in the next column, under its own header
+          need = HDR + RH;
+        }
+        if (fresh) {
+          if (y > TOP) y += GAP;
+          groups.push_back({M + col * (colw + 16), y, i, 0});
+          y += HDR;
+        }
+        groups.back().n++;
+        y += RH;
+        shown = i + 1;
+        last = due;
+      }
+      for (auto &g : groups) {
+        JsonObject a = items[g.first];
+        std::string due = a["due"] | "", date = a["date"] | "";
+        caps(g.x + 20, g.y + 4, ink, due);
+        if (!date.empty() && date != due) caps_right(g.x + colw - 20, g.y + 4, ink, date);
+        card(g.x, g.y + HDR, colw, g.n * RH);
+        for (int i = 0; i < g.n; i++) {
+          int ry = g.y + HDR + i * RH;
+          if (i > 0) it.horizontal_line(g.x + 20, ry, colw - 22, ink);
+          row(g.x, ry, colw, items[g.first + i], "");
+        }
+      }
+      int week = upcoming["due_this_week"] | 0;
+      std::vector<std::string> parts = {week > 0 ? std::to_string(week) + " due this week" : std::to_string(count) + " coming up"};
+      if (count > shown) parts.push_back(std::to_string(count - shown) + " more");
+      summary(parts, false);

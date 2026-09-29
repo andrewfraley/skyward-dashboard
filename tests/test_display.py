@@ -156,6 +156,7 @@ def test_payload(db):
     assert body["sync_error"] is None and body["stale"] is False
     [student] = body["students"]
     assert student["name"] == "Demo" and student["grading_period"] == "GP2"
+    assert student["period_ends"] == "Fri Oct 30" and student["period_days_left"] == 33
     assert student["grades"] == [
         {"course": "Concert Choir-II", "letter": "C-", "percent": "70.3%", "struggling": True,
          "missing": 1}
@@ -177,6 +178,16 @@ def test_work_due_today_counts_as_due_this_week(tmp_path):
     [student] = display.build(database, now=NOW, next_run=None)["students"]
     assert student["upcoming"]["due_this_week"] == 1
     assert student["upcoming"]["items"][0]["due"] == "Today"
+
+
+def test_period_end_is_blank_once_the_period_is_over(db):
+    after = datetime(2026, 11, 2, 9, 0, tzinfo=timezone.utc)  # GP2 ended Oct 30, no GP3 dates
+    [student] = display.build(db, now=after, next_run=None)["students"]
+    assert student["grading_period"] == "GP2"
+    assert student["period_ends"] == "" and student["period_days_left"] is None
+    last_day = datetime(2026, 10, 30, 9, 0, tzinfo=timezone.utc)
+    [student] = display.build(db, now=last_day, next_run=None)["students"]
+    assert student["period_days_left"] == 0
 
 
 def test_lists_are_capped(tmp_path):

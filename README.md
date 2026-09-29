@@ -75,9 +75,22 @@ are on the GitHub releases page.
 
 ## E-paper display
 
-You can also show the dashboard on a battery e-paper screen such as the Seeed reTerminal E1001:
-grades, missing work and what's coming up, updated when the dashboard updates. See
-[DISPLAY.md](DISPLAY.md).
+You can also put the dashboard on a battery e-paper screen, on a shelf or the fridge: grades,
+missing work and what's coming up, readable from across the room without opening a browser.
+
+![The display's Grades page: grades in a card down the left with a D in a black pill, a large count of missing assignments in a black card on the right with upcoming work under it, and when the grading period ends beside the title](docs/screenshots/display-overview.png)
+
+- **Three pages per student**: Grades, Missing and Coming Up. The buttons page through them, and
+  the labels at the bottom say where each one goes.
+- **Missing work stands out**: the count is in large type, and in the grading period's last week
+  the countdown to its end turns black while anything is still missing.
+- **Long battery life**: it wakes only when the dashboard has updated, redraws only when
+  something changed, and sleeps in between.
+- **Runs ESPHome**: the firmware is in this repository. It supports the Seeed Studio reTerminal
+  E1001 (7.5", 800×480), and any 800×480 ESPHome e-paper screen can use the same layout.
+
+[DISPLAY.md](DISPLAY.md) covers buying, flashing, the buttons, battery life and adding another
+display.
 
 ## API
 

@@ -69,6 +69,9 @@ globals:
   - id: battery_percent
     type: int
     initial_value: "-1"
+  - id: maintaining # in maintenance mode, green released: holding it now restarts
+    type: bool
+    initial_value: "false"
   - id: sleep_ms
     type: uint32_t
     initial_value: "${retry_minutes} * 60000"
@@ -112,6 +115,19 @@ binary_sensor:
                 id(page) = 0;
             - script.execute: redraw
             - script.execute: stay_awake
+      # In maintenance mode, held for 3 s: restart, as if just powered on.
+      - if:
+          condition:
+            lambda: return id(maintaining);
+          then:
+            - delay: 3s
+            - if:
+                condition:
+                  binary_sensor.is_on: student_button
+                then:
+                  - logger.log: Restarting
+                  - delay: 100ms # let the log drain
+                  - lambda: App.safe_reboot();
 
 script:
   - id: wake
@@ -304,7 +320,15 @@ script:
           condition: wifi.connected
           timeout: 30s
       - script.execute: redraw
+      # Still holding the button that got it here: wait for it to go up, or
+      # the hold that started maintenance would restart it too.
+      - wait_until:
+          condition:
+            binary_sensor.is_off: student_button
+          timeout: 60s
+      - lambda: id(maintaining) = true;
       - delay: ${maintenance_minutes}min
+      - lambda: id(maintaining) = false;
       - lambda: id(drawn_hash) = 0; # redraw the data on the next wake
       - deep_sleep.allow: deep_sleep_ctl
       - script.execute: go_to_sleep

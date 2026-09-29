@@ -268,9 +268,16 @@ def _student(database: Database, student: dict, today: str) -> dict:
 
     days = [days_until(a["due_date"], today) for a in upcoming]
     due_this_week = [d for d in days if d is not None and 0 <= d < 7]  # today and the next six
+    # When the period closes, and so does the chance to hand in what's missing.
+    # Blank between periods, when the latest one has already ended.
+    days_left = days_until(period["end_date"], today) if period else None
+    if days_left is not None and days_left < 0:
+        days_left = None
     return {
         "name": fold(first_name(student["name"]), 20),
         "grading_period": period["term"] if period else "",
+        "period_ends": short_date(period["end_date"]) if days_left is not None else "",
+        "period_days_left": days_left,
         "grades": grades,
         "missing": {
             "count": len(missing),
@@ -296,7 +303,8 @@ def build(
         "students": [_student(database, s, today) for s in database.students()],
     }
     # The hash covers only what's drawn, so a display skips redrawing when a
-    # sync changed nothing. It must never include a time of day.
+    # sync changed nothing. It must never include a time of day; the date does
+    # enter it (period_days_left, due labels), so a display redraws once a day.
     digest = hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()[:16]
     return {
         "v": VERSION,

@@ -5,7 +5,7 @@ shelf or a fridge, without opening a browser. The display fetches from your dash
 home network, redraws only when something changed, and sleeps in between, so a charge lasts a
 long time.
 
-![The display's overview: a white header with the student's name, the page and when the dashboard last updated, grades down the left with a D flagged in a black box with an exclamation mark, a large count of missing assignments in a black box on the right, and upcoming work under it](docs/screenshots/display-overview.png)
+![The display's overview: the student's name and grading period above a large "Grades" title, with when the grading period ends on the right; grades in a rounded card down the left with a D in a black pill and an exclamation mark beside the class; a large count of missing assignments in a black card on the right, and upcoming work under it](docs/screenshots/display-overview.png)
 
 *Made-up example data, drawn by the same code the display runs.*
 
@@ -74,22 +74,30 @@ It uses plain HTTP on your network; a reverse proxy that asks for a login won't 
 | Left white | Previous page |
 | Green | Next student (when there's more than one) |
 | Green, held for 2 s while it wakes | Maintenance mode |
+| Green, held for 3 s in maintenance mode | Restart |
 
 A press wakes the display and goes straight to what you asked for. It stays awake for 30 seconds
 after your last press, with the LED on the back lit, then goes back to the overview and sleeps.
 
 The pages, for each student:
 
-- **Overview**: every class's grade for the current grading period, missing work and what's
-  coming up. Classes at C- or below have their grade in a black box with a "!". The number of
-  missing assignments is in large type in a black box, so you can read it from across a room;
-  with nothing missing it says "All caught up".
-- **Missing**: all missing work this grading period.
-- **Coming up**: upcoming work, soonest first.
+- **Grades** (the overview): every class's grade for the current grading period, missing work
+  and what's coming up. Classes at C- or below have their grade in a black pill and a "!" beside
+  the class. The number of missing assignments is in large type in a black card, so you can read
+  it from across a room; with nothing missing it says "All caught up". Beside the title: when the
+  grading period ends and how many days are left, the last chance to hand in missing work. In
+  the period's last week, with anything still missing, that turns black and gets a "!".
+- **Missing**: all missing work this grading period, and when the period ends.
+- **Coming up**: upcoming work, soonest first, grouped by day.
 
-The header says when something on it last changed (not every update finds something new) and the
-battery level. It says so if the last update failed, if Skyward rejected the sign-in, or if the
-data is over a day old.
+![The Missing page: one missing assignment in a card, with the class and its due date, and the count and when the grading period ends beside the title](docs/screenshots/display-missing.png)
+
+![The Coming Up page: upcoming assignments grouped under day headings such as Tomorrow and In 3 days, in two columns, with how many are due this week beside the title](docs/screenshots/display-upcoming.png)
+
+The line at the top says when something on it last changed (not every update finds something
+new) and the battery level. It says so if the last update failed, if Skyward rejected the
+sign-in, or if the data is over a day old. Along the bottom, dots show which page you're on, and
+a label either side names the page the white button on that side goes to.
 
 Other screens you may see:
 
@@ -98,7 +106,8 @@ Other screens you may see:
 - **Charge me** in the header: under 15%. It wakes half as often to stretch the charge.
 - **Battery empty**: under 5%. It stops using Wi-Fi and sleeps until you charge it.
 - **Maintenance mode**: awake for 5 minutes with its address on screen and the LED on, for
-  updates over Wi-Fi and for logs (`esphome logs skyward-display.yaml`).
+  updates over Wi-Fi and for logs (`esphome logs skyward-display.yaml`). Let go of the green
+  button, then hold it for 3 seconds to restart it early: it starts as if just switched on.
 
 To show one student only, for a display in a child's room, set `student: "0"` (or `"1"`, ...) in
 your file. The green button then does nothing.
@@ -162,7 +171,8 @@ or removed; a breaking change would be a new version, served alongside this one.
 | `changed` | when the last update that changed something finished, such as `Mon Sep 28, 9:02 AM` (0.8.2 and later) |
 | `stale` | the last successful update is over a day old |
 | `sync_error` | a short message if the last update failed, else `null` |
-| `students[]` | `name` (first name), `grading_period`, `grades[]`, `missing`, `upcoming` |
+| `students[]` | `name` (first name), `grading_period`, `period_ends`, `period_days_left`, `grades[]`, `missing`, `upcoming` |
+| `period_ends`, `period_days_left` | the current grading period's last day, such as `Fri Oct 30`, and days until it (`0` on the day); `""` and `null` between periods (0.9.0 and later) |
 | `grades[]` | `course`, `letter`, `percent` (text, such as `96.5%`), `struggling` (C- or below), `missing` |
 | `missing`, `upcoming` | `count`, `items[]` (capped), `more` (how many weren't sent); `upcoming` also has `due_this_week` |
 | `items[]` | `course`, `title`, `due` (`Tomorrow`, `3 days ago`, ...), `date` (`Tue Sep 29`) |
