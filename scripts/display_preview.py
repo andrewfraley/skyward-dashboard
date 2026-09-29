@@ -90,7 +90,8 @@ def main() -> int:
     for pbm in pbms:
         pbm_to_png(pbm, pbm.with_suffix(".png"))
         pbm.unlink()
-        print(pbm.with_suffix(".png").relative_to(ROOT))
+        png = pbm.with_suffix(".png")
+        print(png.relative_to(ROOT) if png.is_relative_to(ROOT) else png)
     return 0
 
 

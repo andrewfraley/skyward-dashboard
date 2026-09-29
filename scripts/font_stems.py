@@ -37,7 +37,8 @@ def stems(path: str, size: int) -> tuple[int, int]:
                 elif run:
                     runs[run] += 1
                     run = 0
-    widths = {w: n for w, n in runs.items() if w <= 6}
+    # Stems are the short runs; longer ones are crossbars and bowls.
+    widths = {w: n for w, n in runs.items() if w <= max(3, size // 6)}
     width, count = max(widths.items(), key=lambda kv: kv[1])
     return width, 100 * count // sum(widths.values())
 
