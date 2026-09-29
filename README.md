@@ -136,3 +136,7 @@ examples, and every commit is checked for identifying information. See
 
 See [DEVELOPING.md](DEVELOPING.md) for running from source, how the Skyward client works, and
 how releases are made.
+
+## Support
+
+If the dashboard is useful to you, you can [buy me a coffee](https://buymeacoffee.com/andrewfraley).
