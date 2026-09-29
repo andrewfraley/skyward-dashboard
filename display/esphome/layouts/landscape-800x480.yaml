@@ -4,36 +4,39 @@
 # Everything is black on white. Status is never shown by an inverted box alone:
 # a struggling grade also gets a "!", and the header spells out any problem.
 
+# Sizes are chosen so every stem is a whole number of pixels: at 1 bit per pixel
+# a 2.5 px stem renders as a mix of 2 and 3, and letters look uneven. Measure
+# before changing a size (DEVELOPING.md, "E-paper display").
 font:
   - file: "gfonts://Inter@700"
-    id: font_title
-    size: 28
+    id: font_title # 4 px stems
+    size: 27
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_grade
+    id: font_grade # 5 px
     size: 34
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_heading
+    id: font_heading # 4 px
+    size: 27
+    bpp: 1
+  - file: "gfonts://Inter@600"
+    id: font_body # 3 px
     size: 24
     bpp: 1
   - file: "gfonts://Inter@500"
-    id: font_body
-    size: 22
-    bpp: 1
-  - file: "gfonts://Inter@500"
-    id: font_small
+    id: font_small # 2 px
     size: 18
     bpp: 1
   # White text on black loses its thin strokes to ink bleed on e-paper, so
-  # anything reversed out of black uses this heavier face.
-  - file: "gfonts://Inter@600"
-    id: font_reversed
+  # anything reversed out of black is bold.
+  - file: "gfonts://Inter@700"
+    id: font_reversed # 3 px
     size: 20
     bpp: 1
   - file: "gfonts://Inter@700"
-    id: font_huge
-    size: 48
+    id: font_huge # 6 px
+    size: 44
     bpp: 1
 
 display:
@@ -91,7 +94,7 @@ display:
         return;
       }
       JsonObject s = students[id(student_index)];
-      const char *pages[] = {"Overview", "Missing", "Upcoming"};
+      const char *pages[] = {"Overview", "Missing", "Coming up"};
       int p = id(page);
 
       // Header: name and page on the left, freshness and battery on the right.
@@ -153,8 +156,8 @@ display:
           JsonObject g = grades[i];
           bool low = g["struggling"] | false;
           std::string letter = g["letter"] | "";
-          text(M, y + 8, id(font_body), ink, TextAlign::TOP_LEFT, fit(id(font_body), g["course"] | "", 250));
-          const int right = COL - 100;  // letters end here; the percent sits between
+          text(M, y + 8, id(font_body), ink, TextAlign::TOP_LEFT, fit(id(font_body), g["course"] | "", COL - 110 - 75 - M));
+          const int right = COL - 110;  // letters end here; the percent sits between
           if (low) {  // inverted, and the "!" says the same thing without the box
             int gx, gy, gw, gh, bx, by, bw, bh;
             it.get_text_bounds(0, 0, letter.c_str(), id(font_grade), TextAlign::TOP_LEFT, &gx, &gy, &gw, &gh);
