@@ -16,4 +16,5 @@ __pycache__/
 *.egg-info/
 .pii-terms
 display/esphome/secrets.yaml
+display/esphome/skyward-display.yaml
 .esphome/
