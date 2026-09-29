@@ -102,6 +102,47 @@ themes. axe can't judge everything, so for a UI change also check by eye and by 
 - every control is reachable with Tab, in a sensible order, with the focus outline visible;
 - touch targets are at least 24×24 px, and nothing is lost at 320 px wide or 200% text size.
 
+## E-paper display
+
+The firmware for [DISPLAY.md](DISPLAY.md)'s display is ESPHome YAML in `display/esphome/`. It
+isn't part of the image or CI: each user builds it with their own ESPHome. For working on it,
+install ESPHome into a venv of its own, at the version DISPLAY.md requires, and keep your
+Wi-Fi details in `display/esphome/secrets.yaml` (gitignored; `local-e1001.yaml` lists the keys):
+
+```sh
+python3 -m venv esphome-venv && esphome-venv/bin/pip install esphome==2026.9.0
+esphome-venv/bin/esphome run display/esphome/local-e1001.yaml --device /dev/ttyUSB0
+```
+
+Iterate on the layout without the hardware. `display_preview.py` builds the layout for ESPHome's
+host platform (it needs `g++`), runs it against a dashboard and writes every page and status
+screen to `recordings/display-preview/*.png`. It uses the device's own drawing code and font
+rasteriser, so what it shows is what the panel gets, pixel for pixel, except that it can't show
+ink bleed. It refuses any dashboard with students other than the demo one unless you pass
+`--any-data`:
+
+```sh
+SKYWARD_DATA_DIR=recordings/demo SKYWARD_BASE_URL= SKYWARD_USER= SKYWARD_PASS= \
+  uv run uvicorn app.main:app --port 8087 &    # the demo data only, and no Skyward
+uv run python scripts/display_preview.py
+```
+
+DISPLAY.md's image comes from there, on the demo data, never from a photo of a real screen.
+
+Lessons from the reTerminal E1001 that apply to any layout:
+
+- `epaper_spi` treats `COLOR_ON` as white, like paper, and ESPHome's drawing calls default to
+  it: draw in `Color::BLACK` explicitly, or you get white text on white.
+- Ink bleeds into white pixels, so white text on black needs a heavy weight (Semibold or more).
+- At 1 bit per pixel, Regular weights at 18-22 px round their stems to 1 or 2 pixels unevenly;
+  Medium (500) gives even 2-pixel stems. Zoom into a preview PNG to check.
+- Measure a change's cost in awake time on the device (`Awake N ms` in the log) before adding
+  it. LVGL added about 0.7 s per wake for the same picture, which is why the layout is a lambda.
+- A first ESP-IDF build compiles hundreds of files at once and can use a lot of memory. On a
+  desktop, cap it: `systemd-run --user --scope -p MemoryMax=8G nice esphome-venv/bin/esphome compile ...`.
+- Start a new board with `tests/sleep-test.yaml` and let it run 20 wakes: it must never enter
+  safe mode, every button must wake it, and no refresh may be cut short.
+
 ## Privacy
 
 This project handles children's school records, and the repository must never contain anything
@@ -154,6 +195,8 @@ reaches every install. Every input is pinned, and nothing updates on its own:
   release is seven days old (hijacked packages are usually caught and pulled within days), and
   never major versions or new Python/Node versions. Read the lock diff before merging: a hash
   proves you got the version you asked for, not that the version is safe.
+- **Display firmware** is YAML only; nothing compiled is published. Each user's ESPHome builds
+  it, fetching its own toolchain, and the release tag in their config pins our files.
 - **Published images** carry build provenance and an SBOM:
   `docker buildx imagetools inspect afraley/skyward-dashboard:latest --format '{{ json .Provenance }}'`.
 
