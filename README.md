@@ -88,6 +88,11 @@ Everything is read-only over the local copy, except `POST /api/sync`.
 - `GET /api/students/{id}/assignments?status=missing|upcoming|past`
 - `GET /api/courses/{student_section_id}`: one class, its assignments and grade history
 - `GET /api/changes?student_id=`: new grades, scores and missing work, newest first
+- `GET /api/display`: everything a small screen shows, in one response under a few KB: each
+  student's current grades, missing work this grading period and what's due next, already
+  worded ("Tomorrow", "3 days ago"), plus `sleep_seconds`, how long a battery display can sleep
+  before the next update brings anything new, and a `hash` that changes only when something to
+  show does. Version 1 of this shape only ever gains fields.
 
 Interactive docs are at `/docs`.
 

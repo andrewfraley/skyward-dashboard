@@ -59,6 +59,16 @@ def test_course_detail(client):
     assert client.get("/api/courses/999").status_code == 404
 
 
+def test_display_payload(client):
+    body = client.get("/api/display").json()
+    assert body["v"] == 1 and len(body["hash"]) == 16
+    # No credentials, so no schedule: the longest sleep.
+    assert body["sleep_seconds"] == 12 * 3600
+    assert body["students"][0]["name"] == "Demo"
+    assert set(body) == {"v", "hash", "sleep_seconds", "updated", "stale", "sync_error", "students"}
+    assert client.get("/api/display", params={"v": 2}).status_code == 400
+
+
 def test_unknown_api_path_is_json_404(client):
     r = client.get("/api/nope")
     assert r.status_code == 404 and r.json()["detail"]

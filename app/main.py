@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -18,6 +19,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app import display
 from app.config import ROOT, load_settings
 from app.db import Database
 from app.sync import SyncAlreadyRunning, Syncer
@@ -184,6 +186,23 @@ def changes(
     request: Request, student_id: int | None = None, limit: int = Query(100, ge=1)
 ) -> list[dict]:
     return db(request).changes(student_id=student_id, limit=min(limit, 500))
+
+
+@app.get("/api/display")
+def display_payload(request: Request, v: int = 1) -> dict:
+    """Everything an e-paper display draws, in one small response (DISPLAY.md)."""
+    if v != display.VERSION:
+        raise HTTPException(400, f"Unsupported display payload version {v}")
+    syncer: Syncer = request.app.state.syncer
+    tz = syncer.settings.timezone
+    now = datetime.now(ZoneInfo(tz)) if tz else datetime.now().astimezone()
+    job = request.app.state.scheduler.get_job(SYNC_JOB)
+    return display.build(
+        db(request),
+        now=now,
+        next_run=job.next_run_time if job else None,
+        paused=syncer.login_failed is not None,
+    )
 
 
 @app.exception_handler(404)
