@@ -13,7 +13,7 @@ esphome:
 packages:
   skyward:
     url: https://github.com/andrewfraley/skyward-dashboard
-    ref: v0.8.0 # a release tag; change it to upgrade
+    ref: v0.8.1 # a release tag; change it to upgrade
     refresh: never
     files:
       - display/esphome/devices/reterminal-e1001.yaml
