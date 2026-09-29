@@ -134,8 +134,12 @@ Lessons from the reTerminal E1001 that apply to any layout:
 - `epaper_spi` treats `COLOR_ON` as white, like paper, and ESPHome's drawing calls default to
   it: draw in `Color::BLACK` explicitly, or you get white text on white.
 - Ink bleeds into white pixels, so white text on black needs a heavy weight (Semibold or more).
-- At 1 bit per pixel, Regular weights at 18-22 px round their stems to 1 or 2 pixels unevenly;
-  Medium (500) gives even 2-pixel stems. Zoom into a preview PNG to check.
+- At 1 bit per pixel a stem that isn't a whole number of pixels wide comes out as a mix of
+  widths, and the same letter looks different from place to place. Choose sizes where it is:
+  `scripts/font_stems.py` measures a font the way ESPHome renders it and lists the even sizes
+  (run it with `esphome-venv/bin/python` on the files in `display/esphome/.esphome/font/`).
+  Inter Semibold is even at 24 px and uneven at 22. Pixel fonts such as TRMNL's were even too,
+  but lighter and less like the web UI.
 - Measure a change's cost in awake time on the device (`Awake N ms` in the log) before adding
   it. LVGL added about 0.7 s per wake for the same picture, which is why the layout is a lambda.
 - A first ESP-IDF build compiles hundreds of files at once and can use a lot of memory. On a
