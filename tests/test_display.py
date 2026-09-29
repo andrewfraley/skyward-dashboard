@@ -225,3 +225,40 @@ def test_updated_is_the_local_date(db):
 def test_empty_cache(tmp_path):
     body = display.build(Database(tmp_path / "t.db"), now=NOW, next_run=None)
     assert body["students"] == [] and body["stale"] is True and body["updated"] == ""
+
+
+def test_clock():
+    assert display.clock(datetime(2026, 9, 28, 9, 2)) == "9:02 AM"
+    assert display.clock(datetime(2026, 9, 28, 0, 5)) == "12:05 AM"
+    assert display.clock(datetime(2026, 9, 28, 12, 0)) == "12:00 PM"
+    assert display.clock(datetime(2026, 9, 28, 15, 30)) == "3:30 PM"
+
+
+def test_changed_is_the_last_sync_that_changed_something(db):
+    first = datetime(2026, 9, 27, 13, 2, tzinfo=timezone.utc)
+    finished_at(db, first)  # the seeded first sync
+    utc = timezone.utc
+    assert (
+        display.build(db, now=NOW.astimezone(utc), next_run=None)["changed"]
+        == "Sun Sep 27, 1:02 PM"
+    )
+    before = display.build(db, now=NOW, next_run=None)
+
+    # A sync that changes nothing leaves it, and the hash, alone.
+    save(db, snapshot())
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE sync_runs SET finished_at = ? WHERE id = (SELECT MAX(id) FROM sync_runs)",
+            ((first + timedelta(hours=3)).isoformat(),),
+        )
+    after = display.build(db, now=NOW, next_run=None)
+    assert after["changed"] == before["changed"] and after["hash"] == before["hash"]
+
+    # One that changes a grade moves it.
+    save(db, snapshot(gp2="C"))
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE sync_runs SET finished_at = ? WHERE id = (SELECT MAX(id) FROM sync_runs)",
+            ((first + timedelta(hours=6)).isoformat(),),
+        )
+    assert display.build(db, now=NOW, next_run=None)["changed"] == "Sun Sep 27, 7:02 PM"

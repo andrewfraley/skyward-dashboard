@@ -65,7 +65,11 @@ def test_display_payload(client):
     # No credentials, so no schedule: the longest sleep.
     assert body["sleep_seconds"] == 12 * 3600
     assert body["students"][0]["name"] == "Demo"
-    assert set(body) == {"v", "hash", "sleep_seconds", "updated", "stale", "sync_error", "students"}
+    # v1 only ever gains fields; firmware in the field depends on these.
+    assert set(body) >= {"v", "hash", "sleep_seconds", "updated", "stale", "sync_error", "students"}
+    assert set(body) == {
+        "v", "hash", "sleep_seconds", "updated", "changed", "stale", "sync_error", "students"
+    }  # fmt: skip
     assert client.get("/api/display", params={"v": 2}).status_code == 400
 
 
