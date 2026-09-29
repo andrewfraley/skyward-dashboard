@@ -154,8 +154,9 @@ sometimes has to power-cycle the unit: ask, don't retry in a loop.
 3. Look at the PNGs with Read. To inspect glyphs, crop and scale a region (1-bit PNGs are easy
    to decode with `zlib`; no Pillow). To compare variants, render each and put them side by
    side, then send the image with SendUserFile: the user can't see what Read shows you.
-4. DISPLAY.md's `docs/screenshots/display-overview.png` is a copy of the preview's
-   `student0-overview.png`. Look at it before committing.
+4. `docs/screenshots/display-{overview,missing,upcoming}.png` (README.md shows the first,
+   DISPLAY.md all three) are copies of the preview's `student0-*.png`. Look at each before
+   committing.
 
 Before changing a font size, run `esphome-venv/bin/python scripts/font_stems.py` on the font
 (ESPHome caches gfonts in `display/esphome/.esphome/font/`) and pick a size that's 90%+ even.

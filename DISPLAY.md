@@ -5,7 +5,7 @@ shelf or a fridge, without opening a browser. The display fetches from your dash
 home network, redraws only when something changed, and sleeps in between, so a charge lasts a
 long time.
 
-![The display's overview: a white header with the student's name, the page and when the dashboard last updated, grades down the left with a D flagged in a black box with an exclamation mark, a large count of missing assignments in a black box on the right, and upcoming work under it](docs/screenshots/display-overview.png)
+![The display's overview: the student's name and grading period above a large "Grades" title, with when the grading period ends on the right; grades in a rounded card down the left with a D in a black pill and an exclamation mark beside the class; a large count of missing assignments in a black card on the right, and upcoming work under it](docs/screenshots/display-overview.png)
 
 *Made-up example data, drawn by the same code the display runs.*
 
@@ -80,16 +80,23 @@ after your last press, with the LED on the back lit, then goes back to the overv
 
 The pages, for each student:
 
-- **Overview**: every class's grade for the current grading period, missing work and what's
-  coming up. Classes at C- or below have their grade in a black box with a "!". The number of
-  missing assignments is in large type in a black box, so you can read it from across a room;
-  with nothing missing it says "All caught up".
-- **Missing**: all missing work this grading period.
-- **Coming up**: upcoming work, soonest first.
+- **Grades** (the overview): every class's grade for the current grading period, missing work
+  and what's coming up. Classes at C- or below have their grade in a black pill and a "!" beside
+  the class. The number of missing assignments is in large type in a black card, so you can read
+  it from across a room; with nothing missing it says "All caught up". Beside the title: when the
+  grading period ends and how many days are left, the last chance to hand in missing work. In
+  the period's last week, with anything still missing, that turns black and gets a "!".
+- **Missing**: all missing work this grading period, and when the period ends.
+- **Coming up**: upcoming work, soonest first, grouped by day.
 
-The header says when something on it last changed (not every update finds something new) and the
-battery level. It says so if the last update failed, if Skyward rejected the sign-in, or if the
-data is over a day old.
+![The Missing page: one missing assignment in a card, with the class and its due date, and the count and when the grading period ends beside the title](docs/screenshots/display-missing.png)
+
+![The Coming Up page: upcoming assignments grouped under day headings such as Tomorrow and In 3 days, in two columns, with how many are due this week beside the title](docs/screenshots/display-upcoming.png)
+
+The line at the top says when something on it last changed (not every update finds something
+new) and the battery level. It says so if the last update failed, if Skyward rejected the
+sign-in, or if the data is over a day old. Along the bottom, dots show which page you're on, and
+a label either side names the page the white button on that side goes to.
 
 Other screens you may see:
 
