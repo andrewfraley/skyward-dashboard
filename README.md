@@ -144,3 +144,5 @@ how releases are made.
 If the dashboard is useful to you, you can buy me a coffee. Thank you!
 
 <a href="https://buymeacoffee.com/andrewfraley"><img src="docs/images/buy-me-a-coffee.png" alt="Buy me a coffee" height="50"></a>
+
+<a href="https://buymeacoffee.com/andrewfraley"><img src="docs/images/buy-me-a-coffee-qr.png" alt="A QR code for the same Buy Me a Coffee page" width="180"></a>
