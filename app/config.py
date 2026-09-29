@@ -52,6 +52,24 @@ class Settings:
         return bool(self.base_url and self.username and self.password)
 
 
+UTC_NAMES = {"UTC", "Etc/UTC", "Etc/UCT", "UCT", "GMT", "Etc/GMT", "Zulu", "Etc/Zulu"}
+
+
+def timezone_warning(timezone: str | None) -> str | None:
+    """A warning to log when the timezone is unset or UTC, which is rarely where a family is.
+
+    The schedule runs in it and the e-paper display shows times in it, while the web UI shows
+    the browser's local time, so a wrong TZ is easy to miss.
+    """
+    if timezone and timezone not in UTC_NAMES:
+        return None
+    return (
+        f"TZ is {'not set' if not timezone else timezone}: the sync schedule and the times on an "
+        "e-paper display are in UTC. If you're elsewhere, set TZ in docker-compose.yml, such "
+        "as TZ=America/Chicago, and run `docker compose up -d`."
+    )
+
+
 def load_settings() -> Settings:
     load_dotenv()
     return Settings(

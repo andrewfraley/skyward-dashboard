@@ -48,9 +48,19 @@ SKYWARD_USER=your-username
 SKYWARD_PASS=your-password
 ```
 
+Download the compose file:
+
 ```sh
 chmod 600 .env
 curl -O https://raw.githubusercontent.com/andrewfraley/skyward-dashboard/main/docker-compose.yml
+```
+
+In `docker-compose.yml`, change `TZ=Etc/UTC` to your timezone, as a
+[tz database name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) such as
+`America/New_York` or `Europe/London`. Updates run on its clock and an e-paper display shows times
+in it; left at UTC, both are hours off. Then start it:
+
+```sh
 docker compose up -d
 ```
 
@@ -63,7 +73,7 @@ Settings go in `.env` or `docker-compose.yml`:
 | `SKYWARD_BASE_URL` | | Your district's Family Access address |
 | `SKYWARD_USER`, `SKYWARD_PASS` | | Your Family Access login |
 | `SKYWARD_SYNC_CRON` | `0 6-21/3 * * *` | When to update, in cron syntax: every 3 hours, 6am to 9pm |
-| `TZ` | `Etc/UTC` | Timezone for the schedule, e.g. `America/Chicago` |
+| `TZ` | `Etc/UTC` | Your timezone, e.g. `America/Chicago`: the schedule and the display's times use it |
 | `PUID`, `PGID` | `1000` | The user that owns `./data` |
 | `SKYWARD_LOG_LEVEL` | `INFO` | `DEBUG` for more detail in `docker compose logs`, `WARNING` for less |
 

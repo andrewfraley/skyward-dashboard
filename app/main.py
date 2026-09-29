@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import display
-from app.config import ROOT, load_settings
+from app.config import ROOT, load_settings, timezone_warning
 from app.db import Database
 from app.sync import SyncAlreadyRunning, Syncer
 
@@ -48,6 +48,8 @@ async def lifespan(app: FastAPI):
     db = Database(settings.db_path)
     syncer = Syncer(settings, db)
     syncer.fail_stale_runs()
+    if warning := timezone_warning(settings.timezone):
+        log.warning(warning)
     scheduler = BackgroundScheduler(timezone=settings.timezone or None)
     app.state.db, app.state.syncer, app.state.scheduler = db, syncer, scheduler
 
