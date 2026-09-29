@@ -96,7 +96,8 @@ The pages, for each student:
 
 The line at the top says when something on it last changed (not every update finds something
 new) and the battery level. It says so if the last update failed, if Skyward rejected the
-sign-in, or if the data is over a day old. Along the bottom, dots show which page you're on, and
+sign-in, or if the data is over a day old. Times are in the dashboard's timezone, its `TZ`
+setting; if they're off by some hours, see [Install](README.md#install). Along the bottom, dots show which page you're on, and
 a label either side names the page the white button on that side goes to.
 
 Other screens you may see:

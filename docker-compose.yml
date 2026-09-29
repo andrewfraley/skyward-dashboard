@@ -10,7 +10,7 @@ services:
     environment:
       - PUID=1000           # on Linux, what `id -u` prints — the owner of ./data
       - PGID=1000           # on Linux, what `id -g` prints
-      - TZ=Etc/UTC          # e.g. America/Chicago; the sync schedule runs in this timezone
+      - TZ=Etc/UTC          # change to yours, e.g. America/Chicago (the schedule and display times)
       # - SKYWARD_SYNC_CRON=0 6-21/3 * * *   # default: every 3 hours, 6am–9pm
     volumes:
       - ./data:/data:z      # :z is for SELinux (Fedora, RHEL); ignored everywhere else
