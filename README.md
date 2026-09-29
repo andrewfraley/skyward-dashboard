@@ -8,6 +8,15 @@ Skyward has no parent API, so the app signs in with your Family Access login and
 pages your browser does. It updates on a schedule you choose and keeps what it fetches on your
 machine; the dashboard never waits on Skyward, and nothing is sent anywhere else.
 
+**It works only with Skyward Qmlativ**, not the older Skyward SMS 2.0; schools and districts use
+one or the other. To tell which yours is, sign in to Family Access in a browser and look at the
+address bar:
+
+- **Qmlativ (works):** after the site's address comes `/Student/...`, and the sign-in page is
+  under `/StudentSTS/`.
+- **SMS 2.0 (doesn't work yet):** the address contains `/scripts/wsisa.dll/WService=` and ends
+  in a page such as `sfhome01.w`.
+
 ![The overview on a desktop browser: headline counts for missing work, work due soon and low grades, then a card per class with its current grade and percentage](docs/screenshots/desktop-overview.png)
 
 <p align="center">
