@@ -73,6 +73,12 @@ proxy with authentication. See [SECURITY.md](SECURITY.md).
 To stay on a release, pin the image, e.g. `image: afraley/skyward-dashboard:0.1.0`. Release notes
 are on the GitHub releases page.
 
+## E-paper display
+
+You can also show the dashboard on a battery e-paper screen such as the Seeed reTerminal E1001:
+grades, missing work and what's coming up, updated when the dashboard updates. See
+[DISPLAY.md](DISPLAY.md).
+
 ## API
 
 Everything is read-only over the local copy, except `POST /api/sync`.
@@ -92,7 +98,8 @@ Everything is read-only over the local copy, except `POST /api/sync`.
   student's current grades, missing work this grading period and what's due next, already
   worded ("Tomorrow", "3 days ago"), plus `sleep_seconds`, how long a battery display can sleep
   before the next update brings anything new, and a `hash` that changes only when something to
-  show does. Version 1 of this shape only ever gains fields.
+  show does. Version 1 of this shape only ever gains fields; [DISPLAY.md](DISPLAY.md#the-apidisplay-contract)
+  has the details.
 
 Interactive docs are at `/docs`.
 

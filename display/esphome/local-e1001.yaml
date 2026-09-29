@@ -1,0 +1,14 @@
+# For working on the display from this checkout: the same as
+# reterminal-e1001.example.yaml, but from the local files. Put wifi_ssid,
+# wifi_password, ota_password and dashboard_url in display/esphome/secrets.yaml
+# (gitignored), then: esphome run display/esphome/local-e1001.yaml
+substitutions:
+  dashboard_url: !secret dashboard_url
+
+esphome:
+  name: skyward-display
+
+packages:
+  device: !include devices/reterminal-e1001.yaml
+  skyward: !include common/skyward.yaml
+  layout: !include layouts/landscape-800x480.yaml

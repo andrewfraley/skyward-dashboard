@@ -1,0 +1,215 @@
+# The 800x480 landscape layout: three pages per student and the status screens.
+# Draws from common/skyward.yaml's globals; any 800x480 display can use it.
+#
+# Everything is black on white. Status is never shown by an inverted box alone:
+# a struggling grade also gets a "!", and the header spells out any problem.
+
+font:
+  - file: "gfonts://Inter@700"
+    id: font_title
+    size: 28
+    bpp: 1
+  - file: "gfonts://Inter@700"
+    id: font_grade
+    size: 34
+    bpp: 1
+  - file: "gfonts://Inter@700"
+    id: font_heading
+    size: 24
+    bpp: 1
+  - file: "gfonts://Inter@500"
+    id: font_body
+    size: 22
+    bpp: 1
+  - file: "gfonts://Inter@500"
+    id: font_small
+    size: 18
+    bpp: 1
+  # White text on black loses its thin strokes to ink bleed on e-paper, so
+  # anything reversed out of black uses this heavier face.
+  - file: "gfonts://Inter@600"
+    id: font_reversed
+    size: 20
+    bpp: 1
+  - file: "gfonts://Inter@700"
+    id: font_huge
+    size: 48
+    bpp: 1
+
+display:
+  - id: !extend epd
+    lambda: |-
+      // epaper_spi treats "on" as white, like paper: ink is Color::BLACK.
+      const Color ink = Color::BLACK, paper = Color::WHITE;
+      const int W = 800, H = 480, M = 20, HEADER = 56;
+
+      // Text cut to a width, with "..." when it doesn't fit.
+      auto fit = [&](display::BaseFont *f, std::string s, int width) -> std::string {
+        int x, y, w, h;
+        it.get_text_bounds(0, 0, s.c_str(), f, TextAlign::TOP_LEFT, &x, &y, &w, &h);
+        if (w <= width) return s;
+        while (!s.empty()) {
+          s.pop_back();
+          std::string t = s + "...";
+          it.get_text_bounds(0, 0, t.c_str(), f, TextAlign::TOP_LEFT, &x, &y, &w, &h);
+          if (w <= width) return t;
+        }
+        return "";
+      };
+      auto text = [&](int x, int y, display::BaseFont *f, Color c, TextAlign a, const std::string &s) {
+        it.print(x, y, f, c, a, s.c_str());
+      };
+      auto centred = [&](int y, display::BaseFont *f, const std::string &s) {
+        text(W / 2, y, f, ink, TextAlign::TOP_CENTER, fit(f, s, W - 2 * M));
+      };
+
+      // Status screens: no data, or no data worth trusting.
+      if (id(screen) != 0) {
+        it.rectangle(M / 2, M / 2, W - M, H - M, ink);
+        if (id(screen) == 1) {
+          centred(170, id(font_huge), "Can't reach the dashboard");
+          centred(250, id(font_body), "Check that it's running and on this network.");
+          centred(285, id(font_body), "Trying again every ${retry_minutes} minutes.");
+        } else if (id(screen) == 2) {
+          centred(170, id(font_huge), "Battery empty");
+          centred(250, id(font_body), "Charge it to bring the dashboard back.");
+        } else {
+          centred(150, id(font_huge), "Maintenance mode");
+          centred(230, id(font_body), "Awake for ${maintenance_minutes} minutes for updates and logs.");
+          char ip[network::IP_ADDRESS_BUFFER_SIZE];
+          network::get_ip_addresses()[0].str_to(ip);
+          centred(265, id(font_body), std::string("Address: ") + ip);
+        }
+        return;
+      }
+
+      JsonObject root = id(doc).as<JsonObject>();
+      JsonArray students = root["students"];
+      if (students.size() == 0) {
+        centred(200, id(font_huge), "No students yet");
+        centred(270, id(font_body), "The dashboard hasn't finished its first update.");
+        return;
+      }
+      JsonObject s = students[id(student_index)];
+      const char *pages[] = {"Overview", "Missing", "Upcoming"};
+      int p = id(page);
+
+      // Header: name and page on the left, freshness and battery on the right.
+      it.filled_rectangle(0, 0, W, HEADER, ink);
+      std::string name = s["name"] | "";
+      std::string left = name + "  -  " + pages[p];
+      text(M, 12, id(font_title), paper, TextAlign::TOP_LEFT, left);
+      int lx, ly, lw, lh;
+      it.get_text_bounds(M, 12, left.c_str(), id(font_title), TextAlign::TOP_LEFT, &lx, &ly, &lw, &lh);
+      for (int i = 0; i < 3; i++) {  // page dots, filled for this page
+        int cx = M + lw + 24 + i * 18;
+        if (i == p) it.filled_circle(cx, 28, 6, paper); else it.circle(cx, 28, 6, paper);
+      }
+      std::string status;
+      const char *err = root["sync_error"] | "";
+      if (*err) status = err;
+      else if (root["stale"] | false) status = std::string("Not updated since ") + (root["updated"] | "?");
+      else status = std::string("Updated ") + (root["updated"] | "");
+      int batt = id(battery_percent);
+      if (batt >= 0) status += batt < 15 ? "  |  Charge me " + std::to_string(batt) + "%" : "  |  " + std::to_string(batt) + "%";
+      int right_start = M + lw + 24 + 3 * 18 + 16;
+      text(W - M, 15, id(font_reversed), paper, TextAlign::TOP_RIGHT, fit(id(font_reversed), status, W - M - right_start));
+
+      // A list row: title on the left, a label on the right, course under the title.
+      auto item = [&](int x, int y, int width, JsonObject a, const char *label_key) {
+        std::string label = a[label_key] | "";
+        int bx, by, bw, bh;
+        it.get_text_bounds(0, 0, label.c_str(), id(font_small), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+        text(x, y, id(font_body), ink, TextAlign::TOP_LEFT, fit(id(font_body), a["title"] | "", width - bw - 12));
+        text(x + width, y + 3, id(font_small), ink, TextAlign::TOP_RIGHT, label);
+        text(x, y + 25, id(font_small), ink, TextAlign::TOP_LEFT, fit(id(font_small), a["course"] | "", width));
+      };
+      auto more = [&](int x, int y, int n) {
+        if (n > 0) text(x, y, id(font_small), ink, TextAlign::TOP_LEFT, "+ " + std::to_string(n) + " more");
+      };
+      auto heading = [&](int x, int y, const std::string &h, int count) {
+        text(x, y, id(font_heading), ink, TextAlign::TOP_LEFT, h);
+        if (count < 0) return;
+        int hx, hy, hw, hh;
+        it.get_text_bounds(x, y, h.c_str(), id(font_heading), TextAlign::TOP_LEFT, &hx, &hy, &hw, &hh);
+        std::string n = std::to_string(count);  // count in an inverted badge
+        int nx, ny, nw, nh;
+        it.get_text_bounds(0, 0, n.c_str(), id(font_reversed), TextAlign::TOP_LEFT, &nx, &ny, &nw, &nh);
+        it.filled_rectangle(x + hw + 10, y + 1, nw + 16, 27, ink);
+        text(x + hw + 18, y + 3, id(font_reversed), paper, TextAlign::TOP_LEFT, n);
+      };
+
+      JsonObject missing = s["missing"], upcoming = s["upcoming"];
+      int top = HEADER + 16;
+
+      if (p == 0) {
+        // Left: grades. Right: missing and upcoming, three each.
+        const int COL = 425;
+        int y = top;
+        JsonArray grades = s["grades"];
+        int rows = std::min<int>(grades.size(), 9);
+        int step = rows > 7 ? 42 : 50;
+        for (int i = 0; i < rows; i++) {
+          JsonObject g = grades[i];
+          bool low = g["struggling"] | false;
+          std::string letter = g["letter"] | "";
+          text(M, y + 8, id(font_body), ink, TextAlign::TOP_LEFT, fit(id(font_body), g["course"] | "", 250));
+          const int right = COL - 100;  // letters end here; the percent sits between
+          if (low) {  // inverted, and the "!" says the same thing without the box
+            int gx, gy, gw, gh, bx, by, bw, bh;
+            it.get_text_bounds(0, 0, letter.c_str(), id(font_grade), TextAlign::TOP_LEFT, &gx, &gy, &gw, &gh);
+            it.get_text_bounds(0, 0, "!", id(font_grade), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+            const int pad = 7, gap = 7, left = right - (gw + gap + bw + 2 * pad);  // ends where letters do
+            it.filled_rectangle(left, y, gw + gap + bw + 2 * pad, 42, ink);
+            text(left + pad, y + 3, id(font_grade), paper, TextAlign::TOP_LEFT, letter);
+            text(left + pad + gw + gap, y + 3, id(font_grade), paper, TextAlign::TOP_LEFT, "!");
+          } else {
+            text(right, y + 3, id(font_grade), ink, TextAlign::TOP_RIGHT, letter);
+          }
+          text(COL - 20, y + 8, id(font_body), ink, TextAlign::TOP_RIGHT, g["percent"] | "");
+          y += step;
+        }
+        if (grades.size() == 0) text(M, y, id(font_body), ink, TextAlign::TOP_LEFT, "No grades yet");
+        it.vertical_line(COL, top, H - top - M, ink);
+
+        int x = COL + 20, width = W - M - x;
+        y = top;
+        int n = missing["count"] | 0;
+        heading(x, y, "Missing", n);
+        y += 36;
+        JsonArray mi = missing["items"];
+        if (n == 0) { text(x, y, id(font_body), ink, TextAlign::TOP_LEFT, "All caught up"); y += 34; }
+        int shown_missing = std::min<int>(mi.size(), 3);
+        for (int i = 0; i < shown_missing; i++, y += 52) item(x, y, width, mi[i], "due");
+        if (n > shown_missing) { more(x, y, n - shown_missing); y += 24; }
+        // Coming up takes whatever room is left.
+        y += 14;
+        n = upcoming["count"] | 0;
+        heading(x, y, "Coming up", -1);
+        y += 36;
+        JsonArray ui = upcoming["items"];
+        if (n == 0) text(x, y, id(font_body), ink, TextAlign::TOP_LEFT, "Nothing due");
+        int room = (H - M - y) / 52;
+        if (n > room) room = (H - M - 24 - y) / 52;  // leave a line for "+ N more"
+        int shown_upcoming = std::max(0, std::min<int>(ui.size(), room));
+        for (int i = 0; i < shown_upcoming; i++, y += 52) item(x, y, width, ui[i], "due");
+        more(x, y, n - shown_upcoming);
+        return;
+      }
+
+      // Pages 1 and 2: one line per assignment, in two columns of up to 6.
+      JsonObject list = p == 1 ? missing : upcoming;
+      JsonArray items = list["items"];
+      int count = list["count"] | 0;
+      heading(M, top, p == 1 ? "Missing this grading period" : "Coming up", count);
+      if (count == 0) {
+        text(M, top + 50, id(font_body), ink, TextAlign::TOP_LEFT, p == 1 ? "All caught up" : "Nothing due");
+        return;
+      }
+      const int colw = (W - 3 * M) / 2;
+      int shown = std::min<int>(items.size(), 12);
+      for (int i = 0; i < shown; i++) {
+        int x = M + (i / 6) * (colw + M), y = top + 44 + (i % 6) * 56;
+        item(x, y, colw, items[i], "due");
+      }
+      more(M, H - M - 18, count - shown);

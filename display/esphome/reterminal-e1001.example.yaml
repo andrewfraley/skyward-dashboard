@@ -1,0 +1,29 @@
+# Copy this into your ESPHome config folder as skyward-display.yaml and set the
+# values in your secrets.yaml: wifi_ssid, wifi_password, ota_password.
+# See DISPLAY.md in https://github.com/andrewfraley/skyward-dashboard.
+substitutions:
+  # Your dashboard, as the display will reach it on your network.
+  dashboard_url: http://192.168.1.20:8080
+  # -1 shows every student (the green button switches); 0, 1, ... pins one.
+  student: "-1"
+
+esphome:
+  name: skyward-display
+
+packages:
+  skyward:
+    url: https://github.com/andrewfraley/skyward-dashboard
+    ref: v0.8.0 # a release tag; change it to upgrade
+    refresh: never
+    files:
+      - display/esphome/devices/reterminal-e1001.yaml
+      - display/esphome/common/skyward.yaml
+      - display/esphome/layouts/landscape-800x480.yaml
+
+# Optional, and a little faster on every wake: a fixed address.
+# wifi:
+#   manual_ip:
+#     static_ip: 192.168.1.50
+#     gateway: 192.168.1.1
+#     subnet: 255.255.255.0
+#     dns1: 192.168.1.1
