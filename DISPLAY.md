@@ -74,6 +74,7 @@ It uses plain HTTP on your network; a reverse proxy that asks for a login won't 
 | Left white | Previous page |
 | Green | Next student (when there's more than one) |
 | Green, held for 2 s while it wakes | Maintenance mode |
+| Green, held for 3 s in maintenance mode | Restart |
 
 A press wakes the display and goes straight to what you asked for. It stays awake for 30 seconds
 after your last press, with the LED on the back lit, then goes back to the overview and sleeps.
@@ -105,7 +106,8 @@ Other screens you may see:
 - **Charge me** in the header: under 15%. It wakes half as often to stretch the charge.
 - **Battery empty**: under 5%. It stops using Wi-Fi and sleeps until you charge it.
 - **Maintenance mode**: awake for 5 minutes with its address on screen and the LED on, for
-  updates over Wi-Fi and for logs (`esphome logs skyward-display.yaml`).
+  updates over Wi-Fi and for logs (`esphome logs skyward-display.yaml`). Let go of the green
+  button, then hold it for 3 seconds to restart it early: it starts as if just switched on.
 
 To show one student only, for a display in a child's room, set `student: "0"` (or `"1"`, ...) in
 your file. The green button then does nothing.
