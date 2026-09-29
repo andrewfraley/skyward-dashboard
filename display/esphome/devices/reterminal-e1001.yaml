@@ -1,0 +1,133 @@
+# Seeed reTerminal E1001: 7.5" 800x480 monochrome e-paper, ESP32-S3 with 8 MB PSRAM and
+# 32 MB flash, three buttons, a 2000 mAh battery. Needs ESPHome 2026.9.0 or later.
+#
+# A device file provides the hardware and nothing else. The shared config
+# (common/) and the layout (layouts/) use only these ids:
+#   epd             the display
+#   deep_sleep_ctl  deep sleep, woken by the page and student buttons
+#   page_button     binary_sensor: next page
+#   prev_button     binary_sensor: previous page (a board without one can use a
+#                   template binary_sensor that never turns on)
+#   student_button  binary_sensor: next student
+#   wake_button     global int: 0 timer or power-on, 1 page, 2 student, 3 previous page
+#   battery_voltage sensor, read on demand by the read_battery script
+#   status_led      output: lit while the display is awake and listening for buttons
+#   read_battery    script: switch the divider on, read, switch it off
+#   quiet_hardware  script: everything that could draw current, off before sleep
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  # The chip has 32 MB, but OTA on 32 MB needs ESP-IDF's experimental features;
+  # the firmware is well under 1 MB, so use the first 16.
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO9
+
+display:
+  - platform: epaper_spi
+    id: epd
+    # Pins, busy polarity and the UC8179 panel. epaper_spi treats COLOR_ON as white,
+    # like paper; a display lambda must draw in Color::BLACK (LVGL's colours are fine).
+    model: Seeed-reTerminal-E1001
+    update_interval: never
+    full_update_every: 1
+
+globals:
+  - id: wake_button
+    type: int
+    initial_value: "0"
+
+deep_sleep:
+  id: deep_sleep_ctl
+  esp32_ext1_wakeup:
+    mode: ANY_LOW
+    pins:
+      - pin:
+          number: GPIO4 # right white button
+          allow_other_uses: true
+        on_wake:
+          - globals.set:
+              id: wake_button
+              value: "1"
+      - pin:
+          number: GPIO3 # green button
+          allow_other_uses: true
+        on_wake:
+          - globals.set:
+              id: wake_button
+              value: "2"
+      - pin:
+          number: GPIO5 # left white button
+          allow_other_uses: true
+        on_wake:
+          - globals.set:
+              id: wake_button
+              value: "3"
+
+binary_sensor:
+  - platform: gpio
+    id: page_button
+    pin:
+      number: GPIO4
+      mode: INPUT_PULLUP
+      inverted: true
+      allow_other_uses: true
+    filters:
+      - delayed_on: 20ms
+  - platform: gpio
+    id: prev_button
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+      allow_other_uses: true
+    filters:
+      - delayed_on: 20ms
+  - platform: gpio
+    id: student_button
+    pin:
+      number: GPIO3
+      mode: INPUT_PULLUP
+      inverted: true
+      allow_other_uses: true
+    filters:
+      - delayed_on: 20ms
+
+output:
+  - platform: gpio
+    id: battery_divider
+    pin: GPIO21
+  - platform: gpio
+    id: status_led
+    pin: GPIO6
+    inverted: true
+
+sensor:
+  - platform: adc
+    id: battery_voltage
+    pin: GPIO1
+    attenuation: 12db
+    update_interval: never
+    filters:
+      - multiply: 2.0 # the divider halves the cell voltage
+
+script:
+  - id: read_battery
+    then:
+      - output.turn_on: battery_divider
+      - delay: 10ms
+      - component.update: battery_voltage
+      - output.turn_off: battery_divider
+  - id: quiet_hardware
+    then:
+      - output.turn_off: battery_divider
+      - output.turn_off: status_led

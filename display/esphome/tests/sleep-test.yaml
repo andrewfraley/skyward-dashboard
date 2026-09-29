@@ -1,0 +1,78 @@
+# Hardware check for a device file, run before any layout work (no Wi-Fi needed):
+#   esphome run display/esphome/tests/sleep-test.yaml --device /dev/ttyUSB0
+# Each wake draws the wake count, what woke it and the battery voltage, waits for
+# the panel to finish, then sleeps for 2 minutes. Press any button to wake it.
+# It passes when it keeps cycling (20+ wakes, no safe mode), every button wakes it
+# and say which, and the screen is never left half drawn.
+
+substitutions:
+  device: reterminal-e1001
+
+esphome:
+  name: skyward-display-test
+  min_version: 2026.9.0
+  on_boot:
+    priority: -100
+    then:
+      - globals.set:
+          id: wakes
+          value: !lambda return id(wakes) + 1;
+      - script.execute: read_battery
+      - script.wait: read_battery
+      - component.update: epd
+      - wait_until:
+          condition:
+            lambda: return id(epd).is_idle();
+          timeout: 30s
+      - safe_mode.mark_successful:
+      - logger.log:
+          format: "Wake %d (button %d) done after %u ms"
+          args: [id(wakes), id(wake_button), millis()]
+      - script.execute: quiet_hardware
+      - wait_until:
+          condition:
+            and:
+              - binary_sensor.is_off: page_button
+              - binary_sensor.is_off: prev_button
+              - binary_sensor.is_off: student_button
+          timeout: 10s
+      - deep_sleep.enter:
+          id: deep_sleep_ctl
+          sleep_duration: 2min
+
+packages:
+  device: !include ../devices/${device}.yaml
+
+logger:
+  hardware_uart: UART0
+  level: DEBUG
+
+safe_mode:
+
+globals:
+  - id: wakes
+    type: int
+    restore_value: true
+    initial_value: "0"
+
+font:
+  - file: "gfonts://Inter@700"
+    id: font_big
+    size: 56
+    bpp: 1
+  - file: "gfonts://Inter@400"
+    id: font_small
+    size: 28
+    bpp: 1
+
+display:
+  - id: !extend epd
+    lambda: |-
+      // epaper_spi treats "on" as white, like paper, so ink is always Color::BLACK.
+      const char *by[] = {"timer / power-on", "next page button", "student button", "previous page button"};
+      auto ink = Color::BLACK;
+      it.printf(40, 60, id(font_big), ink, "Wake %d", id(wakes));
+      it.printf(40, 160, id(font_small), ink, "Woken by: %s", by[id(wake_button)]);
+      it.printf(40, 210, id(font_small), ink, "Battery: %.2f V", id(battery_voltage).state);
+      it.print(40, 400, id(font_small), ink, "Sleeping 2 min. Press a button to wake.");
+      it.rectangle(20, 20, 760, 440, ink);
