@@ -90,6 +90,9 @@ proxy targets it). The container still listens on 8080 internally.
   opt-in `tools` dependency group only; CI and the image have no browser.
 - `docker-compose.yml` pulls the published image and must stay usable on its own (users download
   only it and write a `.env`). Anything needing the source goes in `docker-compose.override.yml`.
+- `app/display.py`: the `/api/display` payload for e-paper displays (versioned; v1 only gains
+  fields). `display/esphome/`: the ESPHome firmware: `devices/` (hardware only), `common/`
+  (fetch, redraw, sleep), `layouts/` (one display lambda per size). DISPLAY.md is the user doc.
 
 ## Skyward gotchas
 
@@ -130,6 +133,43 @@ proxy targets it). The container still listens on 8080 internally.
 - README screenshots come only from `scripts/screenshots.py --readme` on the seeded demo data,
   **never from real data** or a real browser session. `check_pii.py` can't read images: look at
   every image before committing it.
+
+## E-paper display
+
+The test unit is a reTerminal E1001 on `/dev/ttyUSB0`. ESPHome and esptool live in the gitignored
+`esphome-venv/`; Wi-Fi details are in `display/esphome/secrets.yaml` (gitignored). The user
+sometimes has to power-cycle the unit: ask, don't retry in a loop.
+
+**Screenshots of the display come from the preview, never from a photo of a real screen.**
+
+1. Serve the demo data on :8087, with the Skyward login blanked so it can't sign in:
+   `SKYWARD_DATA_DIR=recordings/demo SKYWARD_BASE_URL= SKYWARD_USER= SKYWARD_PASS= uv run uvicorn
+   app.main:app --host 0.0.0.0 --port 8087` (run in the background; `seed_demo.py` first if
+   `recordings/demo/` is empty). `--host 0.0.0.0` lets the unit fetch from it too.
+2. `uv run python scripts/display_preview.py` builds `display/esphome/tests/preview.yaml` for
+   ESPHome's host platform (needs `g++`), runs the real layout lambda against the dashboard and
+   writes every page and status screen to `recordings/display-preview/*.png`. It refuses any
+   dashboard with non-demo students. What it draws is the panel's output pixel for pixel, except
+   ink bleed (white text on black looks thinner on the panel).
+3. Look at the PNGs with Read. To inspect glyphs, crop and scale a region (1-bit PNGs are easy
+   to decode with `zlib`; no Pillow). To compare variants, render each and put them side by
+   side, then send the image with SendUserFile: the user can't see what Read shows you.
+4. DISPLAY.md's `docs/screenshots/display-overview.png` is a copy of the preview's
+   `student0-overview.png`. Look at it before committing.
+
+Before changing a font size, run `esphome-venv/bin/python scripts/font_stems.py` on the font
+(ESPHome caches gfonts in `display/esphome/.esphome/font/`) and pick a size that's 90%+ even.
+
+Building and flashing:
+
+- Wrap every compile in `systemd-run --user --scope -p MemoryMax=8G -p CPUWeight=20 nice -n 19`.
+  An uncapped first ESP-IDF or LVGL build froze the user's desktop.
+- `esphome-venv/bin/esphome upload <config> --device /dev/ttyUSB0`, then capture logs to a file
+  with `timeout N esphome logs ... > file` in the background (piping them through grep buffers
+  until exit). Only one process can hold the port: stop a log capture with TaskStop, never
+  `pkill -f` a pattern that matches your own command line.
+- Measure a change on the unit (`Awake N ms` in the log) before assuming it's cheap. The only
+  way to see a real panel is to ask the user for a photo.
 
 ## Supply chain
 
