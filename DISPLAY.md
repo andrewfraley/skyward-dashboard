@@ -162,7 +162,8 @@ or removed; a breaking change would be a new version, served alongside this one.
 | `changed` | when the last update that changed something finished, such as `Mon Sep 28, 9:02 AM` (0.8.2 and later) |
 | `stale` | the last successful update is over a day old |
 | `sync_error` | a short message if the last update failed, else `null` |
-| `students[]` | `name` (first name), `grading_period`, `grades[]`, `missing`, `upcoming` |
+| `students[]` | `name` (first name), `grading_period`, `period_ends`, `period_days_left`, `grades[]`, `missing`, `upcoming` |
+| `period_ends`, `period_days_left` | the current grading period's last day, such as `Fri Oct 30`, and days until it (`0` on the day); `""` and `null` between periods (0.9.0 and later) |
 | `grades[]` | `course`, `letter`, `percent` (text, such as `96.5%`), `struggling` (C- or below), `missing` |
 | `missing`, `upcoming` | `count`, `items[]` (capped), `more` (how many weren't sent); `upcoming` also has `due_this_week` |
 | `items[]` | `course`, `title`, `due` (`Tomorrow`, `3 days ago`, ...), `date` (`Tue Sep 29`) |
