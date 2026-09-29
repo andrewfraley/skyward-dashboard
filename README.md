@@ -1,5 +1,7 @@
 # Skyward Dashboard
 
+<a href="https://buymeacoffee.com/andrewfraley"><img src="docs/images/buy-me-a-coffee-with-qr.png" alt="Buy me a coffee, with a QR code for the same page" width="180" align="right"></a>
+
 A parent's dashboard for **Skyward Family Access** (Qmlativ): current grades with the percentage
 and category breakdown for every grading period, missing assignments for the whole year, and what's
 coming up, for every student on your account.
@@ -136,3 +138,11 @@ examples, and every commit is checked for identifying information. See
 
 See [DEVELOPING.md](DEVELOPING.md) for running from source, how the Skyward client works, and
 how releases are made.
+
+## Support
+
+If the dashboard is useful to you, you can buy me a coffee. Thank you!
+
+<a href="https://buymeacoffee.com/andrewfraley"><img src="docs/images/buy-me-a-coffee.png" alt="Buy me a coffee" height="50"></a>
+
+<a href="https://buymeacoffee.com/andrewfraley"><img src="docs/images/buy-me-a-coffee-qr.png" alt="A QR code for the same Buy Me a Coffee page" width="180"></a>
