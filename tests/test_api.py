@@ -34,6 +34,7 @@ def test_ping_reports_the_pyproject_version(client):
 def test_status_without_credentials(client):
     body = client.get("/api/status").json()
     assert body["last_success"]["status"] == "ok"
+    assert body["last_change"]["id"] == body["last_success"]["id"]  # the only sync
     assert body["next_run"] is None and body["syncing"] is False
     r = client.post("/api/sync", headers={"X-Requested-With": "XMLHttpRequest"})
     assert r.status_code == 400

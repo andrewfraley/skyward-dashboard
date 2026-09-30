@@ -123,11 +123,36 @@ export function timeAgo(iso, now = Date.now()) {
   return 'just now'
 }
 
-/** '5m ago', '3h ago', '2d ago': timeAgo() for a phone's header. */
-export function timeAgoShort(iso, now = Date.now()) {
-  const long = timeAgo(iso, now)
-  const m = long.match(/^(\d+) (day|hour|minute)s? ago$/)
-  return m ? `${m[1]}${m[2][0]} ago` : long
+/** The time and, unless it's today, the day: `time` '2:05 PM', `day` 'Yesterday', 'Mon' or 'Sep 21'. */
+function whenParts(iso, now) {
+  const when = new Date(iso)
+  const time = when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  // Calendar days, rounded so a daylight-saving change doesn't matter.
+  const days = Math.round((midnight(new Date(now)) - midnight(when)) / 86_400_000)
+  const day =
+    days <= 0
+      ? null
+      : days === 1
+        ? 'Yesterday'
+        : days < 7
+          ? when.toLocaleDateString(undefined, { weekday: 'short' })
+          : when.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return { time, day, week: days < 7 }
+}
+
+/** '2:05 PM' today, 'Yesterday 2:05 PM', 'Mon 2:05 PM' this past week, else 'Sep 21, 2:05 PM'. */
+export function clockTime(iso, now = Date.now()) {
+  if (!iso) return 'never'
+  const { time, day, week } = whenParts(iso, now)
+  return !day ? time : week ? `${day} ${time}` : `${day}, ${time}`
+}
+
+/** clockTime() for a phone's header: the time if it's today, else only the day. */
+export function clockTimeShort(iso, now = Date.now()) {
+  if (!iso) return 'never'
+  const { time, day } = whenParts(iso, now)
+  return day ?? time
 }
 
 /** "STUDENT, DEMO" -> "Demo". */

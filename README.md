@@ -118,8 +118,9 @@ display.
 Everything is read-only over the local copy, except `POST /api/sync`.
 
 - `GET /api/ping`: liveness and the running version
-- `GET /api/status`: the last update, the next scheduled one, whether one is running, and
-  whether automatic updates are paused because Skyward rejected the sign-in
+- `GET /api/status`: the last update, the last one that found something new (`last_change`),
+  the next scheduled one, whether one is running, and whether automatic updates are paused
+  because Skyward rejected the sign-in
 - `POST /api/sync`: update now. It needs the header `X-Requested-With: XMLHttpRequest`, so a web
   page on another site can't start one: `curl -X POST -H 'X-Requested-With: XMLHttpRequest'
   http://localhost:8080/api/sync`. 409 if one is running, 429 within five minutes of the last.
