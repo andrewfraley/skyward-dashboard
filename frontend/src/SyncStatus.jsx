@@ -8,12 +8,15 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlineOutlined'
 import RefreshIcon from '@mui/icons-material/Refresh'
 
 import * as api from './api.js'
-import { timeAgo, timeAgoShort } from './grades.js'
+import { clockTime, clockTimeShort } from './grades.js'
 
 /**
- * "Updated 2 hours ago" plus a refresh button. Polls the status while a sync
- * runs and calls `onSynced` when one finishes, so the pages reload their data.
- * `compact` (phones) shortens it to "2h ago", with a bigger touch target.
+ * "Updated 2:00 PM · Last change 11:00 AM" plus a refresh button: when the
+ * last update ran, and when one last found something new (as the e-paper
+ * display shows it). Polls the status while a sync runs and calls `onSynced`
+ * when one finishes, so the pages reload their data. `compact` (phones)
+ * shows only "Changed 11:00 AM" ("Changed Mon" before today), with both times
+ * in the tooltip and a bigger touch target.
  */
 export default function SyncStatus({ onSynced, compact = false }) {
   const [status, setStatus] = useState(null)
@@ -57,7 +60,7 @@ export default function SyncStatus({ onSynced, compact = false }) {
     }
     restart.current = poll
     poll()
-    // Keep "x minutes ago" fresh between polls.
+    // Keep "Yesterday" and the like right across midnight between polls.
     const clock = setInterval(() => tick((n) => n + 1), 30000)
     return () => {
       cancelled = true
@@ -88,6 +91,10 @@ export default function SyncStatus({ onSynced, compact = false }) {
 
   const failed = status?.last_run?.status === 'error' ? status.last_run : null
   const updated = status?.last_success?.finished_at
+  const changed = status?.last_change?.finished_at
+  const times = updated
+    ? `Updated ${clockTime(updated)}` + (changed ? ` · Last change ${clockTime(changed)}` : '')
+    : ''
   const next = status?.next_run ? new Date(status.next_run).toLocaleString() : null
   const schedule = status?.paused
     ? 'Automatic updates are paused because Skyward rejected the sign-in'
@@ -109,12 +116,7 @@ export default function SyncStatus({ onSynced, compact = false }) {
           </Box>
         </Tooltip>
       )}
-      <Tooltip
-        title={
-          notice ||
-          (compact && !offline && updated ? `Updated ${timeAgo(updated)}. ` : '') + schedule
-        }
-      >
+      <Tooltip title={notice || (compact && !offline && times ? `${times}. ` : '') + schedule}>
         <Typography
           variant="body2"
           color={notice ? 'warning.main' : 'text.secondary'}
@@ -135,8 +137,8 @@ export default function SyncStatus({ onSynced, compact = false }) {
                 : !updated
                   ? 'Not updated yet'
                   : compact
-                    ? timeAgoShort(updated)
-                    : `Updated ${timeAgo(updated)}`}
+                    ? `Changed ${clockTimeShort(changed ?? updated).replace('Yesterday', 'yesterday')}`
+                    : times}
         </Typography>
       </Tooltip>
       {status?.syncing ? (

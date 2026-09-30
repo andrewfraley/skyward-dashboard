@@ -109,6 +109,8 @@ def status(request: Request) -> dict:
         "syncing": request.app.state.syncer.running,
         "last_run": next(iter(db(request).last_runs(1)), None),
         "last_success": db(request).last_success(),
+        # The last good sync that found something new, as the e-paper display shows.
+        "last_change": db(request).last_change(),
         "next_run": job.next_run_time.isoformat() if job and job.next_run_time else None,
         "schedule": request.app.state.syncer.settings.sync_cron if job else None,
         # Automatic syncs are paused after Skyward rejected the sign-in.

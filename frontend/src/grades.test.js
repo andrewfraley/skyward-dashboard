@@ -15,7 +15,8 @@ import {
   gradeBand,
   semesterGrades,
   timeAgo,
-  timeAgoShort,
+  clockTime,
+  clockTimeShort,
 } from './grades.js'
 
 const grades = [
@@ -106,12 +107,22 @@ describe('dates and labels', () => {
     expect(timeAgo('2026-09-26T12:00:00Z', now)).toBe('1 day ago')
     expect(timeAgo(null, now)).toBe('never')
   })
-  it('shortens time ago for phones', () => {
-    const now = Date.parse('2026-09-27T12:00:00Z')
-    expect(timeAgoShort('2026-09-27T11:55:00Z', now)).toBe('5m ago')
-    expect(timeAgoShort('2026-09-27T09:00:00Z', now)).toBe('3h ago')
-    expect(timeAgoShort('2026-09-25T12:00:00Z', now)).toBe('2d ago')
-    expect(timeAgoShort('2026-09-27T11:59:50Z', now)).toBe('just now')
+  it('gives a clock time, with the day when it is not today', () => {
+    // Local times, so the calendar day is the same wherever the tests run.
+    const now = new Date(2026, 8, 27, 12, 0).getTime()
+    const at = (day, hour, minute = 0) => new Date(2026, 8, day, hour, minute)
+    const time = (d) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+    expect(clockTime(at(27, 9, 5).toISOString(), now)).toBe(time(at(27, 9, 5)))
+    expect(clockTime(at(26, 21).toISOString(), now)).toBe(`Yesterday ${time(at(26, 21))}`)
+    const weekday = at(23, 18).toLocaleDateString(undefined, { weekday: 'short' })
+    expect(clockTime(at(23, 18).toISOString(), now)).toBe(`${weekday} ${time(at(23, 18))}`)
+    const date = at(15, 6).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    expect(clockTime(at(15, 6).toISOString(), now)).toBe(`${date}, ${time(at(15, 6))}`)
+    expect(clockTime(null, now)).toBe('never')
+    expect(clockTimeShort(at(27, 9, 5).toISOString(), now)).toBe(time(at(27, 9, 5)))
+    expect(clockTimeShort(at(26, 21).toISOString(), now)).toBe('Yesterday')
+    expect(clockTimeShort(at(23, 18).toISOString(), now)).toBe(weekday)
+    expect(clockTimeShort(at(15, 6).toISOString(), now)).toBe(date)
   })
 })
 
