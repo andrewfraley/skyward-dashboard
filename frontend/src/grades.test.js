@@ -10,10 +10,12 @@ import {
   gradingPeriod,
   inPeriod,
   isStruggling,
+  periodEnd,
   daysUntil,
   formatPercent,
   gradeBand,
   semesterGrades,
+  shortDate,
   timeAgo,
   clockTime,
   clockTimeShort,
@@ -74,6 +76,20 @@ describe('inPeriod', () => {
   it('counts everything when it cannot tell', () => {
     expect(inPeriod({ due_date: null }, gp2)).toBe(true)
     expect(inPeriod({ due_date: '2026-08-14' }, null)).toBe(true)
+  })
+})
+
+describe('periodEnd', () => {
+  const gp2 = { term: 'GP2', start_date: '2026-09-21', end_date: '2026-10-30' }
+  it('counts the days left, including the last day', () => {
+    expect(periodEnd(gp2, '2026-10-19')).toMatchObject({ daysLeft: 11, label: 'in 11 days' })
+    expect(periodEnd(gp2, '2026-10-29')).toMatchObject({ daysLeft: 1, label: 'tomorrow' })
+    expect(periodEnd(gp2, '2026-10-30')).toMatchObject({ daysLeft: 0, label: 'today' })
+    expect(periodEnd(gp2, '2026-10-30').date).toBe(shortDate('2026-10-30'))
+  })
+  it('is null once the period has ended or without one', () => {
+    expect(periodEnd(gp2, '2026-10-31')).toBeNull()
+    expect(periodEnd(null)).toBeNull()
   })
 })
 
