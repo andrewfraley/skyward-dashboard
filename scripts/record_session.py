@@ -13,6 +13,9 @@ stay on this machine.
 
 Without a URL it opens SKYWARD_BASE_URL (from .env) at the assignments page. The
 site root (/) resets the connection, so it always starts from a deeper path.
+
+Run it only on the machine that runs the app, never a development checkout
+(DEVELOPING.md, How the Skyward client works).
 """
 
 import json

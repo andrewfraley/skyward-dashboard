@@ -13,6 +13,9 @@ It finishes by running scripts/check_pii.py over the result and refuses to
 leave fixtures behind if anything is flagged. Review the diff before committing.
 
     uv run python scripts/capture_fixtures.py [--keep]   # --keep: leave flagged files to debug
+
+Run it only on the machine that runs the app, never a development checkout
+(DEVELOPING.md, How the Skyward client works).
 """
 
 import itertools

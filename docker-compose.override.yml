@@ -1,11 +1,20 @@
 # Only in a checkout of the repo; Compose merges it into docker-compose.yml
 # automatically. `docker compose up -d --build` builds this source instead of
-# pulling the published image.
+# pulling the published image, and serves the demo data (scripts/seed_demo.py)
+# with no Skyward login: a development machine never holds real data.
 services:
   skyward-dashboard:
     build: .
     image: skyward-dashboard:dev
+    container_name: skyward-dashboard-dev
     pull_policy: build   # the base file's `always` would pull instead of building
-    # Lets a dev instance sit beside other apps: SKYWARD_PORT=8088 in .env.
+    env_file: !reset []
+    environment:
+      - SKYWARD_BASE_URL=
+      - SKYWARD_USER=
+      - SKYWARD_PASS=
+    volumes: !override
+      - ./recordings/demo:/data:z
+    # Lets a dev instance sit beside other apps: SKYWARD_PORT=8088 docker compose up -d --build
     ports: !override
       - "${SKYWARD_PORT:-8080}:8080"
