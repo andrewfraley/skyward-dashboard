@@ -213,10 +213,12 @@ reaches every install. Every input is pinned, and nothing updates on its own:
   no package runs an install script, and `save-exact` for anything newly added.
 - **Few dependencies.** Plain `uvicorn` rather than `uvicorn[standard]`; Playwright only in the
   opt-in `tools` group. Think twice before adding a dependency, and prefer a few lines of code.
-- **Dependabot** (`.github/dependabot.yml`) proposes updates weekly as grouped PRs, only after a
-  release is seven days old (hijacked packages are usually caught and pulled within days), and
-  never major versions or new Python/Node versions. Read the lock diff before merging: a hash
-  proves you got the version you asked for, not that the version is safe.
+- **Dependabot** (`.github/dependabot.yml`) opens PRs for security fixes only, as soon as one is
+  out. Routine upgrades are done by hand, in a PR of their own. The exception is the app's base
+  images, which get no security alerts: their new digests (OS fixes for the same tag) still come
+  weekly, a week after publication (hijacked images are usually caught and pulled within days).
+  Read the lock diff before merging: a hash proves you got the version you asked for, not that
+  the version is safe.
 - **Display firmware** is YAML only; nothing compiled is published. Each user's ESPHome builds
   it, fetching its own toolchain, and the release tag in their config pins our files.
 - **Published images** carry build provenance and an SBOM:

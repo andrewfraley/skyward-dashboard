@@ -195,7 +195,9 @@ stays pinned. DEVELOPING.md's *Supply chain* section is the full list; the rules
   new package needs an install script, don't add it.
 - Keep dependencies few. Justify any new one in its PR (what it does, why a few lines of code
   won't do); prefer packages already in the lock. Nothing that phones home.
-- Dependabot waits 7 days and skips majors. When reviewing its PR, read the lock diff. A PR
+- Dependabot opens security updates only, plus weekly digest bumps for the app's base images
+  (they get no security alerts). Routine upgrades are by hand, after the same 7-day wait, and
+  their own PR. When reviewing a Dependabot PR, read the lock diff. A PR
   saying "Cooldown could not be applied" is a blocker: check the release date by hand, and fix
   the source so the cooldown works rather than merging early. Major
   upgrades (React, MUI, Vite, a new Python) are their own PR with code changes. Don't loosen

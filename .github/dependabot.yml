@@ -2,12 +2,18 @@
 # The cooldown only works where the registry reports publish dates, so every
 # image comes from Docker Hub (scripts/check_base_images.sh enforces it) and
 # uv comes from PyPI (tools/uv/requirements.txt), not from ghcr.io.
-# Dependabot opens a PR for each update; read the lock diff before merging,
-# since a hash only proves you got the version you asked for, not that the
-# version is safe.
+# Read the lock diff of any Dependabot PR before merging, since a hash only
+# proves you got the version you asked for, not that the version is safe.
 #
-# These settings shape routine *version* updates only. Security updates
-# ignore `ignore` and `cooldown` and arrive as soon as there's a fix.
+# Security updates only: `open-pull-requests-limit: 0` turns off routine
+# version PRs, while security updates (on in the repo's settings) still arrive
+# as soon as there's a fix; they ignore the limit, `ignore` and `cooldown`.
+# Routine upgrades are done by hand. The one exception is the app's base
+# images: Docker images get no security alerts, so their OS fixes only come
+# as new digests, and those PRs stay on.
+#
+# The settings below shape version updates, so they matter only for the base
+# images, or if a limit is lifted again:
 #
 # - cooldown: a new release isn't proposed until it's a week old. Hijacked
 #   packages are usually caught and pulled within days.
@@ -21,6 +27,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0   # security updates only
     cooldown:
       default-days: 7
     groups:
@@ -31,6 +38,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0   # security updates only
     cooldown:
       default-days: 7
     # Every range in pyproject.toml is open-ended (>=), so every new version,
@@ -48,6 +56,7 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0   # security updates only
     cooldown:
       default-days: 7
     versioning-strategy: increase-if-necessary
@@ -64,6 +73,7 @@ updates:
     directory: /tools/uv
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0   # security updates only
     cooldown:
       default-days: 7
     ignore:
@@ -88,6 +98,7 @@ updates:
     directory: /tools/buildkit
     schedule:
       interval: weekly
+    open-pull-requests-limit: 0   # security updates only
     cooldown:
       default-days: 7
     ignore:
