@@ -15,13 +15,18 @@ scripts/                tools for studying Skyward, capturing fixtures, and the 
 
 ## Running from source
 
+Develop against the made-up demo account, never your own. A development checkout holds no `.env`,
+no `data/` and no recordings of the real site: your child's records stay on the machine that runs
+the app, and so do the tools that study the live site (see
+[How the Skyward client works](#how-the-skyward-client-works)).
+
 ```sh
-cp .env.example .env                      # your Skyward address and login
 git config core.hooksPath .githooks       # the PII check on every commit (see Privacy)
 uv sync                                   # .venv, pinned to uv.lock, with the dev tools
 uv run pytest                             # no network, no Skyward
-uv run python -m app.sync                 # one real sync into ./data
-uv run uvicorn app.main:app --port 8087 --reload
+uv run python scripts/seed_demo.py        # recordings/demo/skyward.db: an invented student
+SKYWARD_DATA_DIR=recordings/demo SKYWARD_BASE_URL= SKYWARD_USER= SKYWARD_PASS= \
+  uv run uvicorn app.main:app --port 8087 --reload    # the demo data, and no Skyward
 
 npm --prefix frontend ci
 npm --prefix frontend test
@@ -36,7 +41,9 @@ docker run --rm -u $(id -u):$(id -g) -e HOME=/tmp -v $PWD/frontend:/ui:z -w /ui 
 
 `docker compose up -d --build` builds and runs the working tree, because
 `docker-compose.override.yml` (present only in a checkout) swaps the published image for
-`build: .`. Set `SKYWARD_PORT=8088` in `.env` to run it beside something already on 8080.
+`build: .`. It serves the demo data from `recordings/demo` with the Skyward login blanked, and
+needs no `.env`. `SKYWARD_PORT=8088 docker compose up -d --build` runs it beside something
+already on 8080.
 
 Python is formatted with Black and `frontend/` with Prettier, both at 100 columns
 (`uv run black .`, `npm --prefix frontend run format`). CI fails on anything they would change.
@@ -59,16 +66,24 @@ Python is formatted with Black and `frontend/` with Prettier, both at 100 column
   happened. The dev scripts share the file, so studying the site doesn't flood the inbox either.
 
 If Skyward changes and a sync starts failing, the tools in `scripts/` help find what moved. They
-need Playwright, which isn't installed by default:
+sign in to the real site and record real pages, so run them **on the machine that runs the app**,
+in a checkout there, never on a development machine. Stop the container first, and point them at
+the app's own login and data folder so they reuse its saved session instead of signing in as a
+new device:
 
 ```sh
+docker compose stop                            # in the app's folder: one session at a time
+set -a && . /path/to/app/.env && set +a        # the app's login
+export SKYWARD_DATA_DIR=/path/to/app/data      # and its saved cookies
 uv sync --group tools && uv run playwright install chromium
 uv run python scripts/record_session.py        # visible browser; you click, it records
-uv run python scripts/explore.py --menu PATH   # headless: logs in from .env, records PATH
+uv run python scripts/explore.py --menu PATH   # headless: logs in, records PATH
+uv run python scripts/capture_fixtures.py      # scrubbed fixtures for tests/fixtures/
 ```
 
 Recordings go to `recordings/`, which is gitignored: they contain your session cookies and your
-student's data. Passwords are redacted before anything is written.
+student's data. Passwords are redacted before anything is written. Only scrubbed fixtures leave
+that machine; delete the recordings when you're done.
 
 ## Checking the UI and taking screenshots
 
@@ -158,15 +173,18 @@ assignment titles.
   line). It then scans every file git would commit (file names and binary files included, and
   each term in its HTML- and JSON-escaped forms too), and prints only the kind of match, never
   the term itself. It runs as the pre-commit and commit-msg hooks and in `tests/test_no_pii.py`.
-  It says which sources it used; with no `data/skyward.db` it can't check names or titles.
+  It says which sources it used; with no `data/skyward.db` it can't check names or titles. A
+  development machine has neither `.env` nor the database, so put the terms that matter in
+  `.pii-terms` there: students', parents' and teachers' names, the school and district, the host.
 - **`tests/test_fixture_hygiene.py`** runs everywhere, CI included, and needs no private data. It
   checks that fixtures carry only placeholder hashes, tokens, hosts and names, and that every
   assignment title, course and teacher the parsers read from them is a stand-in.
 - **Fixtures come only from `scripts/capture_fixtures.py`**, which replaces names, titles, ids,
   hashes and hosts with stand-ins, then deletes its output if `check_pii.py` flags anything.
   Review the diff before committing. Never hand-copy a real response into `tests/`. It signs in
-  with the app's saved cookies, so it needs no Playwright: `uv run python
-  scripts/capture_fixtures.py`.
+  with the app's saved cookies and needs no Playwright, and like the other live-site tools it
+  runs on the machine that runs the app (see above), where `check_pii.py` has the full database
+  to check against.
 
 ## Supply chain
 

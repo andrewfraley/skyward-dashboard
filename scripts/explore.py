@@ -10,6 +10,9 @@ record_session.py, into recordings/<timestamp>/.
 
 After each page it prints the page title, the links on it, and any buttons or
 tabs, so the next paths to visit can be picked from the output.
+
+Run it only on the machine that runs the app, never a development checkout
+(DEVELOPING.md, How the Skyward client works).
 """
 
 import sys
