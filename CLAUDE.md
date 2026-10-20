@@ -27,14 +27,20 @@ in a test, invent one ("CONCERT CHOIR-II"), never copy one from the synced data.
 always obvious stand-ins, never realistic invented names: a made-up "Jane Smith" in a screenshot
 or example reads as a real person.
 
-Real data lives only in gitignored places: `.env`, `data/`, `recordings/`, `.pii-terms`. Read
-from them freely when debugging, but don't copy their contents into tracked files, and don't
-quote real names or grades in commit messages.
+**No real data on the development machine.** It has no `.env`, no `data/` and no real
+recordings, only the seeded demo data in `recordings/demo/` and the local `.pii-terms`. Never
+create them: no real sync, no `explore.py`, `record_session.py` or `capture_fixtures.py` here,
+and never a local server or container with a Skyward login. Those tools run only on the machine
+that runs the app (DEVELOPING.md, *How the Skyward client works*), and only scrubbed fixtures
+come back. If a task seems to need live responses, stop and ask. Never quote real names or
+grades in commit messages.
 
 **Guard rails:**
 
 - `scripts/check_pii.py` scans every file git would commit for terms taken from the local
   `.env`, `data/skyward.db` and `.pii-terms`. It prints the kind of term, never the term itself.
+  Here only `.pii-terms` exists, so it can't know course or assignment titles: read every diff
+  for them yourself.
   Run it after touching tests, fixtures or docs: `uv run python scripts/check_pii.py`.
 - `tests/test_no_pii.py` runs the same check under pytest.
 - `.githooks/pre-commit` runs it on staged files and `.githooks/commit-msg` on the commit
@@ -56,9 +62,10 @@ uv sync                                         # dev tools; `--group tools` add
 uv run pytest                                   # Python tests (parsers, db, API, PII guard)
 uv run python scripts/check_pii.py              # PII scan of everything committable
 uv run black app tests scripts                  # line length 100
-uv run python -m app.sync                       # one real sync into ./data (logs in to Skyward)
-uv run uvicorn app.main:app --port 8087 --reload
-docker compose up -d --build                    # the working tree (override file); SKYWARD_PORT picks the host port
+uv run python scripts/seed_demo.py              # recordings/demo/skyward.db, the only data here
+SKYWARD_DATA_DIR=recordings/demo SKYWARD_BASE_URL= SKYWARD_USER= SKYWARD_PASS= \
+  uv run uvicorn app.main:app --port 8087 --reload
+docker compose up -d --build                    # the working tree on the demo data; SKYWARD_PORT picks the host port
 ```
 
 Frontend (`frontend/`, React 19 + MUI 9 + Vite, plain JSX, Prettier: no semicolons, single
@@ -86,10 +93,12 @@ proxy targets it). The container still listens on 8080 internally.
 - `app/main.py`: FastAPI routes (read-only over the cache, plus `POST /api/sync`), the
   APScheduler cron job (`SKYWARD_SYNC_CRON`), and the built UI.
 - `scripts/`: dev tools. `record_session.py` (visible browser, you click), `explore.py`
-  (headless, logs in from `.env`), `capture_fixtures.py`, `check_pii.py`. Playwright is in the
+  (headless, logs in from `.env`) and `capture_fixtures.py` talk to the real site and run only
+  on the app's machine; `seed_demo.py`, `screenshots.py`, `display_preview.py`, `check_pii.py`. Playwright is in the
   opt-in `tools` dependency group only; CI and the image have no browser.
 - `docker-compose.yml` pulls the published image and must stay usable on its own (users download
-  only it and write a `.env`). Anything needing the source goes in `docker-compose.override.yml`.
+  only it and write a `.env`). Anything needing the source goes in `docker-compose.override.yml`,
+  which builds the working tree and serves `recordings/demo` with no login.
 - `app/display.py`: the `/api/display` payload for e-paper displays (versioned; v1 only gains
   fields). `display/esphome/`: the ESPHome firmware: `devices/` (hardware only), `common/`
   (fetch, redraw, sleep), `layouts/` (one display lambda per size). DISPLAY.md is the user doc.
@@ -103,14 +112,13 @@ proxy targets it). The container still listens on 8080 internally.
   `data/skyward-cookies.json` (`Settings.cookie_path`): the long-lived
   `LoginHistoryIdentifier-Student` device cookie makes a re-sign-in look like the same device,
   and a still-live session is reused with no sign-in at all. Everything that talks to Skyward
-  (`app/sync.py`, `scripts/explore.py`, `scripts/capture_fixtures.py`) must use that file.
-  Never create a throwaway session. Don't sync in loops; reuse `recordings/` for parser work.
-  No keep-alive either: holding a session open would fight the parent's own browser sign-ins.
-- That includes **local testing**, container tests too: anything that reaches the real site
-  reuses `data/skyward-cookies.json`. For a container, mount the repo's `./data` (or copy the
-  cookie file into its data dir, 0600) rather than starting from an empty data dir, and stop any
-  other instance first so two don't share one session. Prefer offline work: `recordings/`,
-  `tests/fixtures/`, and the fake site in `tests/test_session_cookies.py`.
+  (`app/sync.py`, `scripts/explore.py`, `scripts/capture_fixtures.py`) must use that file, so
+  on the app's machine they're pointed at its data folder (`SKYWARD_DATA_DIR`), with the app
+  stopped first so two don't share one session. Never create a throwaway session, and don't
+  sync in loops. No keep-alive either: holding a session open would fight the parent's own
+  browser sign-ins.
+- Here, work offline: `tests/fixtures/`, the fake site in `tests/test_session_cookies.py`, and
+  the demo data.
 - The assignments page filter (Current Term / All Year) is a server-side user preference.
   `fetch_assignments` sets All Year and must always restore Current in a `finally`.
 - Grid requests need the per-page CSRF token (`sessionGuidHash`), window ids (`p`, `w`), and
@@ -187,7 +195,9 @@ stays pinned. DEVELOPING.md's *Supply chain* section is the full list; the rules
   new package needs an install script, don't add it.
 - Keep dependencies few. Justify any new one in its PR (what it does, why a few lines of code
   won't do); prefer packages already in the lock. Nothing that phones home.
-- Dependabot waits 7 days and skips majors. When reviewing its PR, read the lock diff. A PR
+- Dependabot opens security updates only, plus weekly digest bumps for the app's base images
+  (they get no security alerts). Routine upgrades are by hand, after the same 7-day wait, and
+  their own PR. When reviewing a Dependabot PR, read the lock diff. A PR
   saying "Cooldown could not be applied" is a blocker: check the release date by hand, and fix
   the source so the cooldown works rather than merging early. Major
   upgrades (React, MUI, Vite, a new Python) are their own PR with code changes. Don't loosen
