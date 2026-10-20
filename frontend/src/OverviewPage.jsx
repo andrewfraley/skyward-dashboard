@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography'
 import AssignmentLateIcon from '@mui/icons-material/AssignmentLate'
 import EventIcon from '@mui/icons-material/Event'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 
 import AssignmentTable from './AssignmentTable.jsx'
 import { GradeChip, GradeHero } from './GradeBadge.jsx'
@@ -19,6 +20,7 @@ import {
   daysUntil,
   inPeriod,
   isStruggling,
+  periodEnd,
   semesterGrades,
 } from './grades.js'
 
@@ -133,6 +135,10 @@ export default function OverviewPage({ courses, assignments, period, loading }) 
     return days != null && days >= 0 && days < 7 // today and the six days after
   })
   const struggling = graded.filter((c) => isStruggling(currentTerm(c.grades)?.grade))
+  // When the period closes, and so does the chance to hand in what's missing.
+  const ends = periodEnd(period)
+  // Its last week with work still missing: say so louder, as the display does.
+  const urgent = ends && ends.daysLeft < 7 && missing.length > 0
 
   return (
     <Stack spacing={3}>
@@ -146,6 +152,7 @@ export default function OverviewPage({ courses, assignments, period, loading }) 
             detail={[
               missing.length ? `in ${plural(missingClasses, 'class', 'classes')}` : 'All caught up',
               earlier > 0 && `${earlier}${missing.length ? ' more' : ''} earlier this year`,
+              ends && `${period.term} ends ${ends.date}`,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -203,6 +210,21 @@ export default function OverviewPage({ courses, assignments, period, loading }) 
         title={period ? `Missing in ${period.term}` : 'Missing assignments'}
         href="#assignments/missing"
         count={missing.length}
+        note={
+          ends && (
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', minWidth: 0 }}>
+              {/* The amber is too light for text on white, so only the icon carries it. */}
+              {urgent && <WarningAmberIcon fontSize="small" sx={{ color: 'warning.main' }} />}
+              <Typography
+                variant="body2"
+                noWrap
+                sx={urgent ? { color: 'text.primary', fontWeight: 600 } : null}
+              >
+                ends {ends.date} ({ends.label})
+              </Typography>
+            </Stack>
+          )
+        }
       >
         <AssignmentTable rows={missing} loading={loading} showStatus={false} pageSize={10} />
       </Section>
@@ -220,16 +242,40 @@ export default function OverviewPage({ courses, assignments, period, loading }) 
   )
 }
 
-function Section({ title, href, count, children }) {
+// `note` sits after the count, or on its own line under the heading on phones.
+function Section({ title, href, count, note, children }) {
   return (
     <Card>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, px: 2, pt: 1.5, pb: 0.5 }}>
-        <Typography variant="h6" component="h2">
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          alignItems: 'baseline',
+          columnGap: 1,
+          px: 2,
+          pt: 1.5,
+          pb: 0.5,
+        }}
+      >
+        <Typography variant="h6" component="h2" noWrap sx={{ flexShrink: 0 }}>
           {title}
         </Typography>
         <Typography color="text.secondary">{count}</Typography>
+        {note && (
+          <Box
+            sx={{
+              color: 'text.secondary',
+              minWidth: 0,
+              alignSelf: 'center',
+              order: { xs: 1, sm: 0 },
+              flexBasis: { xs: '100%', sm: 'auto' },
+            }}
+          >
+            {note}
+          </Box>
+        )}
         <Box sx={{ flex: 1 }} />
-        <Link href={href} variant="body2">
+        <Link href={href} variant="body2" sx={{ flexShrink: 0 }}>
           See all
         </Link>
       </Box>

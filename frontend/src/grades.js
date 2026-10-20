@@ -47,6 +47,18 @@ export function inPeriod(assignment, period) {
   return !period || !due || (period.start_date <= due && due <= period.end_date)
 }
 
+/**
+ * When `period` ends, the last chance to hand in what's missing, as
+ * { date: 'Fri Oct 30', daysLeft, label: 'today' | 'tomorrow' | 'in 5 days' }.
+ * Null without a period or once it has ended (between periods), as on the display.
+ */
+export function periodEnd(period, today = isoDay()) {
+  const daysLeft = daysUntil(period?.end_date, today)
+  if (daysLeft == null || daysLeft < 0) return null
+  const label = daysLeft === 0 ? 'today' : daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`
+  return { date: shortDate(period.end_date), daysLeft, label }
+}
+
 /** Semester/final grades (S1, S2, ...) that have a value. */
 export const semesterGrades = (grades) =>
   (grades || []).filter((g) => g.grade && /^S\d+$/.test(g.term))
