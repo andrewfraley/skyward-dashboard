@@ -22,7 +22,7 @@ RUN npm run build
 # image installs exactly what CI tested and doesn't need uv itself. uv comes
 # from PyPI, hash-checked and wheels only (see tools/uv/requirements.txt for
 # why not the uv image).
-FROM --platform=$BUILDPLATFORM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 AS lock
+FROM --platform=$BUILDPLATFORM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS lock
 
 COPY tools/uv/requirements.txt /tmp/uv-requirements.txt
 RUN pip install --no-cache-dir --require-hashes --only-binary=:all: -r /tmp/uv-requirements.txt
@@ -32,7 +32,7 @@ RUN uv export --frozen --no-emit-project --no-dev -o /requirements.txt
 # ---- runtime ---------------------------------------------------------------
 # No browser here: the Skyward client is plain HTTP (httpx). Playwright is a
 # dev-only tool for studying the site.
-FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
